@@ -154,6 +154,7 @@ to exclude the API function. */
 extern uint64_t time_us_64(void); // "hardware/timer.h"
 #define portGET_RUN_TIME_COUNTER_VALUE() (time_us_64()/100)
 
+#define configSTATS_BUFFER_MAX_LENGTH 1024
 /* A header file that defines trace macro can be included here. */
 
 #ifdef __cplusplus

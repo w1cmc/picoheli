@@ -16,9 +16,11 @@
 //
 #include "command.h"
 
+// Put the buffer in BSS because there's not enough stack space.
+static char buf[configSTATS_BUFFER_MAX_LENGTH];
+
 static void run_date(const size_t argc, const char *argv[])
 {
-    char buf[128] = {0};
     const time_t now = time(NULL);
     const struct tm * const ptm = localtime(&now);
     assert(strftime(buf, sizeof(buf), "%c", ptm));
@@ -27,17 +29,10 @@ static void run_date(const size_t argc, const char *argv[])
 
 static void run_ps(const size_t argc, const char *argv[])
 {
-    printf(
-        "Task          State  Priority  Stack        "
-        "#\n************************************************\n");
-    /* NOTE - for simplicity, this example assumes the
-     write buffer length is adequate, so does not check for buffer overflows. */
-    char buf[1024] = {0};
-    buf[sizeof buf - 1] = 0xA5;  // Crude overflow guard
-    /* Generate a table of task stats. */
     vTaskList(buf);
-    configASSERT(0xA5 == buf[sizeof buf - 1]);
-    printf("%s\n", buf);
+    puts("Task          State  Priority  Stack        "
+        "#\n************************************************");
+    puts(buf);   
 }
 
 static void run_free(const size_t argc, const char *argv[])
@@ -50,7 +45,7 @@ static void run_free(const size_t argc, const char *argv[])
         xPortGetMinimumEverFreeHeapSize());
 }
 
-static void run_run_time_stats(const size_t argc, const char *argv[])
+static void run_top(const size_t argc, const char *argv[])
 {
     /* A buffer into which the execution times will be
      * written, in ASCII form.  This buffer is assumed to be large enough to
@@ -61,7 +56,6 @@ static void run_run_time_stats(const size_t argc, const char *argv[])
            "Task            Abs Time      % Time\n"
            "****************************************\n");
     /* Generate a table of task stats. */
-    char buf[1024] = {0};
     vTaskGetRunTimeStats(buf);
     printf("%s\n", buf);
 }
@@ -158,6 +152,7 @@ static const struct {
     { "ps", run_ps, "Print current task stats", 1, 1},
     { "set", run_set, "Set GPIO (turn it on)", 2, 2},
     { "ticks", run_ticks, "Print current tick count", 1, 1},
+    { "top", run_top, "Print time statistics", 1, 1},
     { 0 },
 };
 
