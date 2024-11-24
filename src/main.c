@@ -27,6 +27,8 @@ static TaskHandle_t tusbd_task_handle;
 static void tusbd_task_func(void *param)
 {
     tusb_init();
+    stdio_init_all();
+    CLI_Start();
     while (1)
     {
         tud_task();
@@ -36,13 +38,11 @@ static void tusbd_task_func(void *param)
 
 int main()
 {
-    stdio_init_all();
     stdio_glue_init();
 
     configASSERT(xTaskCreate(tusbd_task_func, "TinyUSB Device Task", TUSBD_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &tusbd_task_handle) == pdPASS);
     configASSERT(tusbd_task_handle);
 
-    CLI_Start();
 #if 0
     setvbuf(stdout, NULL, _IONBF, 1);  // specify that the stream should be unbuffered
     printf("\033[2J\033[H");  // Clear Screen

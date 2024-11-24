@@ -36,6 +36,8 @@ target_link_libraries(
 		pico_multicore
 )
 
+add_subdirectory(genusb_dir)
+
 # Select the RP2040 FreeRTOS PORT
 set(FREERTOS_PORT GCC_RP2040)
 # Select the FreeRTOS heap implementation (portable/MemMang/heap_X.c)
@@ -75,6 +77,7 @@ target_link_libraries(
         freertos_kernel
         tinyusb_device
         tinyusb_board
+        genusb
         hardware_rtc
         pico_stdlib
 )
@@ -88,8 +91,8 @@ pico_set_program_name(picoheli "picoheli")
 pico_set_program_version(picoheli "0.0")
 
 # target_compile_definitions(picoheli PUBLIC PICO_DEFAULT_UART_TX_PIN=16 PICO_DEFAULT_UART_RX_PIN=17)
-pico_enable_stdio_uart(picoheli 1)
-pico_enable_stdio_usb(picoheli 0)
+pico_enable_stdio_uart(picoheli 0)
+pico_enable_stdio_usb(picoheli 1)
 
 pico_add_extra_outputs(picoheli)
 
