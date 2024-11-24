@@ -6,34 +6,29 @@
 #include "stdio_cli.h"
 #include "stdio_usb_glue.h"
 
-static SemaphoreHandle_t stdio_tud_cdc_mutex;
+static SemaphoreHandle_t tx_mutex, rx_mutex, write_avail_sem;
 static const TickType_t xTicksToWait = pdMS_TO_TICKS(1000);
 
 static void stdio_usb_out_chars(const char *buf, int len)
 {
     int pos = 0;
 
-    if (xSemaphoreTake(stdio_tud_cdc_mutex, xTicksToWait) == pdTRUE)
-    {
-        while (pos < len && tud_cdc_write_available())
-        {
-            const int n = tud_cdc_write(&buf[pos], len - pos);
-            if (n == 0)
-                break;
-            pos += n;
-        }
-        configASSERT(xSemaphoreGive(stdio_tud_cdc_mutex) == pdTRUE);
+    xSemaphoreTake(tx_mutex, portMAX_DELAY);
+    while (pos < len) {
+        if (tud_cdc_write_available())
+            pos += tud_cdc_write(&buf[pos], len - pos);
+        else
+            xSemaphoreTake(write_avail_sem, portMAX_DELAY);
     }
-
-    // kinda borken API: this function should return the number of chars written
-    // return pos ? pos : PICO_ERROR_NO_DATA;
+    xSemaphoreTake(write_avail_sem, portMAX_DELAY); // wait for tx to complete
+    xSemaphoreGive(tx_mutex);
 }
 
 static int stdio_usb_in_chars(char *buf, int len)
 {
     int pos = 0;
 
-    if (xSemaphoreTake(stdio_tud_cdc_mutex, xTicksToWait) == pdTRUE)
+    if (xSemaphoreTake(rx_mutex, xTicksToWait) == pdTRUE)
     {
         while (pos < len && tud_cdc_available())
         {
@@ -42,7 +37,7 @@ static int stdio_usb_in_chars(char *buf, int len)
                 break;
             pos += n;
         }
-        configASSERT(xSemaphoreGive(stdio_tud_cdc_mutex) == pdTRUE);
+        configASSERT(xSemaphoreGive(rx_mutex) == pdTRUE);
     }
 
     return pos ? pos : PICO_ERROR_NO_DATA;
@@ -88,6 +83,11 @@ void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts)
     prev_dtr = dtr;
 }
 
+void tud_cdc_tx_complete_cb(uint8_t itf)
+{
+    xSemaphoreGive(write_avail_sem);
+}
+
 static stdio_driver_t stdio_usb = {
     .out_chars = stdio_usb_out_chars,
     .in_chars = stdio_usb_in_chars,
@@ -101,7 +101,9 @@ static stdio_driver_t stdio_usb = {
 
 void stdio_usb_glue_init()
 {
-    configASSERT(stdio_tud_cdc_mutex = xSemaphoreCreateMutex());
+    configASSERT(tx_mutex = xSemaphoreCreateMutex());
+    configASSERT(rx_mutex = xSemaphoreCreateMutex());
+    configASSERT(write_avail_sem = xSemaphoreCreateBinary());
     stdio_set_driver_enabled(&stdio_usb, true);
 #if PICO_STDIO_USB_SUPPORT_CHARS_AVAILABLE_CALLBACK
     configASSERT(chars_available_callback_mutex = xSemaphoreCreateMutex());
