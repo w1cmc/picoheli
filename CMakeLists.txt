@@ -83,10 +83,12 @@ target_link_libraries(
 )
 
 add_compile_definitions(USE_PRINTF)
-pico_enable_stdio_uart(picoheli 1)
-add_compile_definitions(
-    PICO_STDIO_USB_SUPPORT_CHARS_AVAILABLE_CALLBACK=$<NOT:$<BOOL:LIB_PICO_STDIO_UART>>
-    PICO_STDIO_UART_SUPPORT_CHARS_AVAILABLE_CALLBACK=$<BOOL:LIB_PICO_STDIO_UART>)
+pico_enable_stdio_uart(picoheli 0)
+if($<BOOL:LIB_PICO_STDIO_UART>)
+    add_compile_definitions(PICO_STDIO_UART_SUPPORT_CHARS_AVAILABLE_CALLBACK=1)
+else()
+    add_compile_definitions(PICO_STDIO_USB_SUPPORT_CHARS_AVAILABLE_CALLBACK=1)
+endif()
 # target_compile_definitions(picoheli PUBLIC PICO_DEFAULT_UART_TX_PIN=16 PICO_DEFAULT_UART_RX_PIN=17)
 # always turn off stdio over USB; we handle that ourselves in TinyUSB.
 pico_enable_stdio_usb(picoheli 0)
