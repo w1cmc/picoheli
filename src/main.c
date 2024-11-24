@@ -24,8 +24,6 @@
 
 static TaskHandle_t init_task_handle;
 
-// USB Device Driver task
-// This top level thread process all usb events and invokes callbacks
 static void init_task_func(void *param)
 {
     tusb_init();

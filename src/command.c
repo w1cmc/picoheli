@@ -208,6 +208,11 @@ static void run_help(const int argc, const char *argv[])
 
 static void parse_cmd(char *line)
 {
+    while (*line && isspace(*line))
+        ++line;
+    if (!*line)
+        goto prompt;
+
     int argc = 1;
     const char ** argv = malloc(sizeof(char *));
     assert(argv);
@@ -232,6 +237,7 @@ static void parse_cmd(char *line)
         puts("Unrecognized command");
 
     free(argv);
+prompt:
     fputs("CLI> ", stdout);
     fflush(stdout);
 }
@@ -262,7 +268,7 @@ void input_scan(int c)
             break;
         default:
             putchar(c);
-            if (ptr < end)
+            if (ptr < &end[-1])
                 *ptr++ = c;
             break;
     }
