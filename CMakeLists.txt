@@ -83,18 +83,18 @@ target_link_libraries(
 )
 
 add_compile_definitions(USE_PRINTF)
-add_compile_definitions(PICO_STDIO_USB_SUPPORT_CHARS_AVAILABLE_CALLBACK)
+pico_enable_stdio_uart(picoheli 1)
+add_compile_definitions(
+    PICO_STDIO_USB_SUPPORT_CHARS_AVAILABLE_CALLBACK=$<NOT:$<BOOL:LIB_PICO_STDIO_UART>>
+    PICO_STDIO_UART_SUPPORT_CHARS_AVAILABLE_CALLBACK=$<BOOL:LIB_PICO_STDIO_UART>)
+# target_compile_definitions(picoheli PUBLIC PICO_DEFAULT_UART_TX_PIN=16 PICO_DEFAULT_UART_RX_PIN=17)
+# always turn off stdio over USB; we handle that ourselves in TinyUSB.
+pico_enable_stdio_usb(picoheli 0)
 
 set_property(TARGET picoheli APPEND_STRING PROPERTY LINK_FLAGS "-Wl,--print-memory-usage")
 
 pico_set_program_name(picoheli "picoheli")
 pico_set_program_version(picoheli "0.0")
-
-# target_compile_definitions(picoheli PUBLIC PICO_DEFAULT_UART_TX_PIN=16 PICO_DEFAULT_UART_RX_PIN=17)
-pico_enable_stdio_uart(picoheli 0)
-# always turn off stdio over USB; we handle that ourselves in TinyUSB.
-pico_enable_stdio_usb(picoheli 0)
-
 pico_add_extra_outputs(picoheli)
 
 message(STATUS "PICO_TINYUSB_PATH: ${PICO_TINYUSB_PATH}")

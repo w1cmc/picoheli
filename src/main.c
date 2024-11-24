@@ -12,7 +12,9 @@
 #include <tusb.h>
 // All the rest
 #include "stdio_cli.h"
-#include "stdio_glue.h"
+#ifndef PICO_STDIO_UART
+#include "stdio_usb_glue.h"
+#endif
 
 #ifndef USE_PRINTF
 #error This program is useless without standard input and output.
@@ -27,14 +29,19 @@ static TaskHandle_t init_task_handle;
 static void init_task_func(void *param)
 {
     tusb_init();
-    stdio_glue_init();
+#if !LIB_PICO_STDIO_UART
+    stdio_usb_glue_init();
+#endif
     stdio_init_all();
-//    CLI_Start();
+#if LIB_PICO_STDIO_UART
+    CLI_Start();
+#endif
     while (1)
     {
         tud_task();
         tud_cdc_write_flush();
     }
+    vTaskDelete(NULL);
 }
 
 int main()

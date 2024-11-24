@@ -4,7 +4,7 @@
 #include "task.h"
 #include "tusb.h"
 #include "stdio_cli.h"
-#include "stdio_glue.h"
+#include "stdio_usb_glue.h"
 
 static SemaphoreHandle_t stdio_tud_cdc_mutex;
 static const TickType_t xTicksToWait = pdMS_TO_TICKS(1000);
@@ -99,7 +99,7 @@ static stdio_driver_t stdio_usb = {
 #endif
 };
 
-void stdio_glue_init()
+void stdio_usb_glue_init()
 {
     configASSERT(stdio_tud_cdc_mutex = xSemaphoreCreateMutex());
     stdio_set_driver_enabled(&stdio_usb, true);
