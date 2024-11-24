@@ -16,16 +16,18 @@
 
 static TaskHandle_t cli_task_handle;
 
-static void callback(void *unused) {
-    if (cli_task_handle == 0)
-        return;
+static void callback(void *arg)
+{
+    TaskHandle_t const handle = arg;
+    configASSERT(handle);
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    xTaskNotifyFromISR(cli_task_handle, CLI_NOTIFY_CHARS_AVAIL, eSetBits, &xHigherPriorityTaskWoken);
+    xTaskNotifyFromISR(handle, CLI_NOTIFY_CHARS_AVAIL, eSetBits, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 // stdioTask - the function which handles input
-static void cli_task_func(void *unused) {
+static void cli_task_func(void *unused)
+{
     (void) unused;
 
     // get notified when there are input characters available
@@ -56,7 +58,7 @@ void CLI_Start()
     if (cli_task_handle)
         return; /* already started */
 
-    configASSERT(xTaskCreate(cli_task_func, "CLI", CLI_TASK_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &cli_task_handle) == pdPASS);
+    configASSERT(xTaskCreate(cli_task_func, "CLI", CLI_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &cli_task_handle) == pdPASS);
     configASSERT(cli_task_handle);
 }
 
