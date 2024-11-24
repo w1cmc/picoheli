@@ -19,7 +19,7 @@
 // Put the buffer in BSS because there's not enough stack space.
 static char buf[configSTATS_BUFFER_MAX_LENGTH];
 
-static void run_date(const size_t argc, const char *argv[])
+static void run_date(const int argc, const char *argv[])
 {
     const time_t now = time(NULL);
     const struct tm * const ptm = localtime(&now);
@@ -27,7 +27,7 @@ static void run_date(const size_t argc, const char *argv[])
     puts(buf);
 }
 
-static void run_ps(const size_t argc, const char *argv[])
+static void run_ps(const int argc, const char *argv[])
 {
     vTaskList(buf);
     puts("Task          State  Priority  Stack        "
@@ -35,7 +35,7 @@ static void run_ps(const size_t argc, const char *argv[])
     puts(buf);   
 }
 
-static void run_free(const size_t argc, const char *argv[])
+static void run_free(const int argc, const char *argv[])
 {
     printf(
         "Configured total heap size:\t%d\n"
@@ -45,7 +45,7 @@ static void run_free(const size_t argc, const char *argv[])
         xPortGetMinimumEverFreeHeapSize());
 }
 
-static void run_top(const size_t argc, const char *argv[])
+static void run_top(const int argc, const char *argv[])
 {
     /* A buffer into which the execution times will be
      * written, in ASCII form.  This buffer is assumed to be large enough to
@@ -61,7 +61,7 @@ static void run_top(const size_t argc, const char *argv[])
 }
 
 /* Derived from pico-examples/clocks/hello_48MHz/hello_48MHz.c */
-static void run_freqs(const size_t argc, const char *argv[])
+static void run_freqs(const int argc, const char *argv[])
 {   
     uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
     uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
@@ -84,13 +84,13 @@ static void run_freqs(const size_t argc, const char *argv[])
     // Can't measure clk_ref / xosc as it is the ref
 }
 
-static void run_set_sys_clock_48mhz(const size_t argc, const char *argv[])
+static void run_set_sys_clock_48mhz(const int argc, const char *argv[])
 {
     set_sys_clock_48mhz();
     setup_default_uart();
 }
 
-static void run_set_sys_clock_khz(const size_t argc, const char *argv[])
+static void run_set_sys_clock_khz(const int argc, const char *argv[])
 {
     const int khz = atoi(argv[0]);
     bool configured = set_sys_clock_khz(khz, false);
@@ -115,7 +115,7 @@ static void run_set_sys_clock_khz(const size_t argc, const char *argv[])
     setup_default_uart();
 }
 
-static void run_clr(const size_t argc, const char *argv[])
+static void run_clr(const int argc, const char *argv[])
 {
     const int gp = atoi(argv[1]);
     gpio_init(gp);
@@ -123,7 +123,7 @@ static void run_clr(const size_t argc, const char *argv[])
     gpio_put(gp, 0);
 }
 
-static void run_set(const size_t argc, const char *argv[])
+static void run_set(const int argc, const char *argv[])
 {
     const int gp = atoi(argv[1]);
     gpio_init(gp);
@@ -131,38 +131,78 @@ static void run_set(const size_t argc, const char *argv[])
     gpio_put(gp, 1);
 }
 
-static void run_ticks(const size_t argc, const char *argv[])
+static void run_ticks(const int argc, const char *argv[])
 {
     printf("%lu ticks elapsed, %lu ms per tick\n", xTaskGetTickCount(), portTICK_PERIOD_MS);
 }
 
-static void run_help(const size_t argc, const char *argv[]);
+static void run_help(const int argc, const char *argv[]);
 
-static const struct {
-    char const * const command;
-    void (* const function)(const size_t argc, const char *argv[]);
-    char const *const help;
+typedef struct {
+    const char * command;
+    void (* const function)(const int argc, const char *argv[]);
+    const char * help;
     int min_argc, max_argc;
-} cmds [] = {
+} cmd_ent_t;
+
+static const cmd_ent_t cmds [] = {
     { "clr", run_clr, "Reset GPIO (turn it off)", 2, 2},
+    { "set", run_set, "Set GPIO (turn it on)", 2, 2},
     { "date", run_date, "Print current date and time", 1, 1},
     { "free", run_free, "Print current heap stats", 1, 1},
+    { "ps", run_ps, "Print current task stats", 1, 1},
+    { "top", run_top, "Print task time statistics", 1, 1},
+    { "ticks", run_ticks, "Print current tick count", 1, 1},
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
     { "help", run_help, "Shows this message", 1, 1},
-    { "ps", run_ps, "Print current task stats", 1, 1},
-    { "set", run_set, "Set GPIO (turn it on)", 2, 2},
-    { "ticks", run_ticks, "Print current tick count", 1, 1},
-    { "top", run_top, "Print time statistics", 1, 1},
-    { 0 },
 };
 
-static const int cmd_table_last = sizeof(cmds)/sizeof(cmds[0]) - 1;
+#define ncmds (sizeof(cmds)/sizeof(cmds[0]))
+static const cmd_ent_t * sorted [ncmds + 1];
 
-static void run_help(const size_t argc, const char *argv[])
+static int compar(const void *a, const void *b)
+{
+    return strcmp((*(const cmd_ent_t **) a)->command, (*(const cmd_ent_t **) b)->command);
+}
+
+static void __attribute__((constructor)) command_init()
+{
+    static const cmd_ent_t last = {0};
+    int i;
+
+    for (i=0; i<ncmds; ++i)
+        sorted[i] = &cmds[i];
+    sorted[ncmds] = &last;
+    qsort(sorted, ncmds, sizeof(sorted[0]), compar);
+}
+
+static const cmd_ent_t * command_find(const char *command)
+{
+    int l = 0, m, r = ncmds + 1;
+    int cmp;
+
+    for (;;) {
+        m = (l+r)/2;
+        cmp = strcasecmp(command, sorted[m]->command);
+        if (cmp < 0 && m < r)
+            r = m;
+        else if (0 < cmp && l < m)
+            l = m;
+        else
+            break;
+    }
+
+    if (cmp == 0)
+        return sorted[m];
+    
+    return NULL;
+}
+
+static void run_help(const int argc, const char *argv[])
 {
     int i;
 
-    for (i=0; i<cmd_table_last; ++i)
+    for (i=0; i<ncmds; ++i)
         printf("%s: %s\n", cmds[i].command, cmds[i].help);
 }
 
@@ -175,29 +215,16 @@ static void parse_cmd(char *line)
     if (!argv[0])
         argv[0] = line;
 
-    int l = 0, m, r = cmd_table_last;
-    int cmp;
-
-    for (;;) {
-        m = (l+r)/2;
-        cmp = strcasecmp(argv[0], cmds[m].command);
-        if (cmp < 0 && m < r)
-            r = m;
-        else if (0 < cmp && l < m)
-            l = m;
-        else
-            break;
-    }
-
-    if (cmp == 0) {
+    const cmd_ent_t * const cmd = command_find(argv[0]);
+    if (cmd) {
         char * arg;
         while ((arg = strtok(NULL, " "))) {
             argv = realloc(argv, (argc + 1) * sizeof(char *));
             argv[argc] = arg;
             ++argc;
         }
-        if (cmds[m].min_argc <= argc && argc <= cmds[m].max_argc)
-            cmds[m].function(argc, argv);
+        if (cmd->min_argc <= argc && argc <= cmd->max_argc)
+            cmd->function(argc, argv);
         else
             puts("Wrong number of arguments");
     }
