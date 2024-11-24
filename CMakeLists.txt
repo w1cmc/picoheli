@@ -92,7 +92,8 @@ pico_set_program_version(picoheli "0.0")
 
 # target_compile_definitions(picoheli PUBLIC PICO_DEFAULT_UART_TX_PIN=16 PICO_DEFAULT_UART_RX_PIN=17)
 pico_enable_stdio_uart(picoheli 0)
-pico_enable_stdio_usb(picoheli 1)
+# always turn off stdio over USB; we handle that ourselves in TinyUSB.
+pico_enable_stdio_usb(picoheli 0)
 
 pico_add_extra_outputs(picoheli)
 
