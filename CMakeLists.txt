@@ -79,6 +79,8 @@ target_link_libraries(
         tinyusb_board
         genusb
         hardware_rtc
+        hardware_pio
+        hardware_dma
         pico_stdlib
 )
 
@@ -99,4 +101,5 @@ pico_set_program_name(picoheli "picoheli")
 pico_set_program_version(picoheli "0.0")
 pico_add_extra_outputs(picoheli)
 
-message(STATUS "PICO_TINYUSB_PATH: ${PICO_TINYUSB_PATH}")
+pico_generate_pio_header(picoheli ${CMAKE_CURRENT_LIST_DIR}/src/onewire.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/generated)
+target_include_directories(picoheli PUBLIC ${CMAKE_CURRENT_LIST_DIR}/generated)

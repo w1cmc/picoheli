@@ -11,6 +11,7 @@
 // TinyUSB
 #include <tusb.h>
 // All the rest
+#include "onewire.h"
 #include "stdio_cli.h"
 #ifndef PICO_STDIO_UART
 #include "stdio_usb_glue.h"
@@ -26,6 +27,7 @@ static TaskHandle_t init_task_handle;
 
 static void init_task_func(void *param)
 {
+    onewire_init();
     tusb_init();
 #if !LIB_PICO_STDIO_UART
     stdio_usb_glue_init();
