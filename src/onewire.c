@@ -29,9 +29,9 @@ static void onewire_task_func(void *arg)
     const uint SERIAL_BAUD = 19200;
 
     PIO pio = pio0;
-    uint sm = 0;
-    uint offset = pio_add_program(pio, &tx1wire_program);
-    tx1wire_program_init(pio, sm, offset, PIN_TX, SERIAL_BAUD);
+    uint tx_sm = 0;
+    const uint tx_offset = pio_add_program(pio, &tx1wire_program);
+    tx1wire_program_init(pio, tx_sm, tx_offset, PIN_TX, SERIAL_BAUD);
 
     dma_chan = dma_claim_unused_channel(true);
     dma_channel_config dma_cfg = dma_channel_get_default_config(dma_chan);
@@ -39,13 +39,13 @@ static void onewire_task_func(void *arg)
     // Configure DMA to write to PIO TX FIFO
     channel_config_set_transfer_data_size(&dma_cfg, DMA_SIZE_8); // Transfer 8-bit data
     channel_config_set_read_increment(&dma_cfg, true);          // Increment read pointer
-    channel_config_set_dreq(&dma_cfg, pio_get_dreq(pio, sm, true)); // Use TX FIFO DREQ
+    channel_config_set_dreq(&dma_cfg, pio_get_dreq(pio, tx_sm, true)); // Use TX FIFO DREQ
 
     static const char data[] = "BLHeli\364\175";
     static const uint DATA_SIZE = count_of(data) - 1; // minus 1 to omit the NUL terminator
 
     dma_channel_set_config(dma_chan, &dma_cfg, false);
-    dma_channel_set_write_addr(dma_chan, &pio->txf[sm], false);
+    dma_channel_set_write_addr(dma_chan, &pio->txf[tx_sm], false);
 
     irq_set_exclusive_handler(DMA_IRQ_0, tx_dma_handler);
     dma_channel_set_irq0_enabled(dma_chan, true);
