@@ -10,11 +10,11 @@
 
 static TaskHandle_t onewire_task_handle;
 
-static int dma_chan;
+static int tx_dma_chan;
 
 static void tx_dma_handler()
 {
-    dma_channel_acknowledge_irq0(dma_chan);
+    dma_channel_acknowledge_irq0(tx_dma_chan);
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     xTaskNotifyFromISR(onewire_task_handle, ONEWIRE_NOTIFY_XFER_DONE, eSetBits, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
@@ -22,19 +22,16 @@ static void tx_dma_handler()
 
 static void onewire_task_func(void *arg)
 {
-    // We're going to use PIO to print "Hello, world!" on the same GPIO which we
-    // normally attach UART0 to.
-    const uint PIN_TX = 27;
-    // This is the same as the default UART baud rate on Pico
-    const uint SERIAL_BAUD = 19200;
+    static const uint PIN = 27;
+    static const uint BPS = 19200;
 
     PIO pio = pio0;
     uint tx_sm = 0;
     const uint tx_offset = pio_add_program(pio, &tx1wire_program);
-    tx1wire_program_init(pio, tx_sm, tx_offset, PIN_TX, SERIAL_BAUD);
+    tx1wire_program_init(pio, tx_sm, tx_offset, PIN, BPS);
 
-    dma_chan = dma_claim_unused_channel(true);
-    dma_channel_config dma_cfg = dma_channel_get_default_config(dma_chan);
+    tx_dma_chan = dma_claim_unused_channel(true);
+    dma_channel_config dma_cfg = dma_channel_get_default_config(tx_dma_chan);
 
     // Configure DMA to write to PIO TX FIFO
     channel_config_set_transfer_data_size(&dma_cfg, DMA_SIZE_8); // Transfer 8-bit data
@@ -44,11 +41,11 @@ static void onewire_task_func(void *arg)
     static const char data[] = "BLHeli\364\175";
     static const uint DATA_SIZE = count_of(data) - 1; // minus 1 to omit the NUL terminator
 
-    dma_channel_set_config(dma_chan, &dma_cfg, false);
-    dma_channel_set_write_addr(dma_chan, &pio->txf[tx_sm], false);
+    dma_channel_set_config(tx_dma_chan, &dma_cfg, false);
+    dma_channel_set_write_addr(tx_dma_chan, &pio->txf[tx_sm], false);
 
     irq_set_exclusive_handler(DMA_IRQ_0, tx_dma_handler);
-    dma_channel_set_irq0_enabled(dma_chan, true);
+    dma_channel_set_irq0_enabled(tx_dma_chan, true);
     irq_set_enabled(DMA_IRQ_0, true);
 
     uint32_t ulNotifications;
@@ -56,15 +53,15 @@ static void onewire_task_func(void *arg)
         (ulNotifications & ONEWIRE_NOTIFY_EXIT_TASK) == 0;
         xTaskNotifyWait(0, ONEWIRE_NOTIFY_XFER_DONE | ONEWIRE_NOTIFY_EXIT_TASK, &ulNotifications, portMAX_DELAY))
     {     
-        dma_channel_set_read_addr(dma_chan, data, false);
-        dma_channel_set_trans_count(dma_chan, DATA_SIZE, true);
+        dma_channel_set_read_addr(tx_dma_chan, data, false);
+        dma_channel_set_trans_count(tx_dma_chan, DATA_SIZE, true);
         vTaskDelay(pdMS_TO_TICKS(100)); // just to make it look good on the 'scope
     }
 
     irq_set_enabled(DMA_IRQ_0, false);
-    dma_channel_cleanup(dma_chan);
-    dma_channel_unclaim(dma_chan);
-    dma_chan = -1;
+    dma_channel_cleanup(tx_dma_chan);
+    dma_channel_unclaim(tx_dma_chan);
+    tx_dma_chan = -1;
 
     vTaskDelete(NULL);
 }
