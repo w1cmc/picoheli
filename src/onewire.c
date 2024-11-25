@@ -1,7 +1,7 @@
 #include <hardware/dma.h>
 #include <FreeRTOS.h>
 #include <task.h>
-#include "onewire.pio.h"
+#include "tx1wire.pio.h"
 #include "onewire.h"
 
 #define ONEWIRE_TASK_STACK_SIZE 256
@@ -30,8 +30,8 @@ static void onewire_task_func(void *arg)
 
     PIO pio = pio0;
     uint sm = 0;
-    uint offset = pio_add_program(pio, &onewire_program);
-    onewire_program_init(pio, sm, offset, PIN_TX, SERIAL_BAUD);
+    uint offset = pio_add_program(pio, &tx1wire_program);
+    tx1wire_program_init(pio, sm, offset, PIN_TX, SERIAL_BAUD);
 
     dma_chan = dma_claim_unused_channel(true);
     dma_channel_config dma_cfg = dma_channel_get_default_config(dma_chan);

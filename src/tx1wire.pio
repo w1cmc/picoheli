@@ -4,7 +4,7 @@
 ; SPDX-License-Identifier: BSD-3-Clause
 ;
 
-.program onewire
+.program tx1wire
 .side_set 1 opt
 
 ; An 8n1 UART transmit program.
@@ -22,11 +22,11 @@ bitloop:                   ; This loop will run 8 times (8n1 UART)
 % c-sdk {
 #include "hardware/clocks.h"
 
-static inline void onewire_program_init(PIO pio, uint sm, uint offset, uint pin_tx, uint baud) {
+static inline void tx1wire_program_init(PIO pio, uint sm, uint offset, uint pin_tx, uint baud) {
     gpio_pull_up(pin_tx);
     pio_gpio_init(pio, pin_tx);
 
-    pio_sm_config c = onewire_program_get_default_config(offset);
+    pio_sm_config c = tx1wire_program_get_default_config(offset);
 
     // pin configuration: it's really just one wire.
     sm_config_set_out_pins(&c, pin_tx, 1);
@@ -44,14 +44,4 @@ static inline void onewire_program_init(PIO pio, uint sm, uint offset, uint pin_
     pio_sm_init(pio, sm, offset, &c);
     pio_sm_set_enabled(pio, sm, true);
 }
-
-static inline void onewire_program_putc(PIO pio, uint sm, char c) {
-    pio_sm_put_blocking(pio, sm, (uint32_t)c);
-}
-
-static inline void onewire_program_puts(PIO pio, uint sm, const char *s) {
-    while (*s)
-        onewire_program_putc(pio, sm, *s++);
-}
-
 %}
