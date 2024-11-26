@@ -18,7 +18,11 @@
 #include "onewire.h"
 
 // Put the buffer in BSS because there's not enough stack space.
+#if configSTATS_BUFFER_MAX_LENGTH < 0xFFFFU
 static char buf[configSTATS_BUFFER_MAX_LENGTH];
+#else
+static char buf[1024];
+#endif
 
 static void run_date(const int argc, const char *argv[])
 {
@@ -116,20 +120,18 @@ static void run_set_sys_clock_khz(const int argc, const char *argv[])
     setup_default_uart();
 }
 
-static void run_clr(const int argc, const char *argv[])
-{
-    const int gp = atoi(argv[1]);
-    gpio_init(gp);
-    gpio_set_dir(gp, GPIO_OUT);
-    gpio_put(gp, 0);
-}
-
-static void run_set(const int argc, const char *argv[])
-{
-    const int gp = atoi(argv[1]);
-    gpio_init(gp);
-    gpio_set_dir(gp, GPIO_OUT);
-    gpio_put(gp, 1);
+static void run_gpio(const int argc, const char *argv[]) {
+    char *end = 0;
+    const unsigned int gp = strtoul(argv[1], &end, 0);
+    if (*argv[1] && !*end && 0 <= gp && gp <= 28) {
+        const int val = !strcmp(argv[0], "set");
+        gpio_init(gp);
+        gpio_set_dir(gp, GPIO_OUT);
+        gpio_put(gp, val);
+    }
+    else {
+        puts("error: expecting a number between 0 and 28");
+    }
 }
 
 static void run_ticks(const int argc, const char *argv[])
@@ -154,9 +156,9 @@ typedef struct {
 } cmd_ent_t;
 
 static const cmd_ent_t cmds [] = {
-    { "clr", run_clr, "Reset GPIO (turn it off)", 2, 2},
-    { "set", run_set, "Set GPIO (turn it on)", 2, 2},
-    { "date", run_date, "Print current date and time", 1, 1},
+    { "clr", run_gpio, "Reset GPIO (turn it off)", 2, 2},
+    { "set", run_gpio, "Set GPIO (turn it on)", 2, 2},
+    { "date", run_date, "Print current system date and time", 1, 1},
     { "free", run_free, "Print current heap stats", 1, 1},
     { "ps", run_ps, "Print current task stats", 1, 1},
     { "top", run_top, "Print task time statistics", 1, 1},
