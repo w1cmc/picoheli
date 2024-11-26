@@ -41,6 +41,7 @@ static void init_task_func(void *param)
         tud_task();
         tud_cdc_write_flush();
     }
+    onewire_exit();
     vTaskDelete(NULL);
 }
 

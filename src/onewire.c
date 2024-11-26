@@ -1,16 +1,35 @@
 #include <hardware/dma.h>
 #include <FreeRTOS.h>
 #include <task.h>
-#include "tx1wire.pio.h"
+#include "onewire.pio.h"
 #include "onewire.h"
 
-#define ONEWIRE_TASK_STACK_SIZE 256
 #define ONEWIRE_NOTIFY_XFER_DONE 1
-#define ONEWIRE_NOTIFY_EXIT_TASK 2
+#define BPS 19200
+#define TX_PULL (onewire_pgm_start + onewire_tx_pull)
 
 static TaskHandle_t onewire_task_handle;
 
 static int tx_dma_chan;
+static uint onewire_pgm_start;
+
+static PIO const pio = pio0;
+static const uint sm = 0;
+
+static inline void onewire_program_restart(uint offset)
+{
+    pio_sm_exec(pio, sm, pio_encode_jmp(offset));
+}
+
+static inline void onewire_tx_start()
+{
+    onewire_program_restart(onewire_pgm_start + onewire_tx_offset);
+}
+
+static inline void onewire_rx_start()
+{
+    onewire_program_restart(onewire_pgm_start + onewire_rx_offset);
+}
 
 static void tx_dma_handler()
 {
@@ -20,15 +39,13 @@ static void tx_dma_handler()
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-static void onewire_task_func(void *arg)
+void onewire_init()
 {
-    static const uint PIN = 27;
-    static const uint BPS = 19200;
+    gpio_pull_up(ONEWIRE_PIN);
+    pio_gpio_init(pio, ONEWIRE_PIN);
 
-    PIO pio = pio0;
-    uint tx_sm = 0;
-    const uint tx_offset = pio_add_program(pio, &tx1wire_program);
-    tx1wire_program_init(pio, tx_sm, tx_offset, PIN, BPS);
+    onewire_pgm_start = pio_add_program(pio, &onewire_program);
+    onewire_program_init(pio, sm, onewire_pgm_start, ONEWIRE_PIN, BPS);
 
     tx_dma_chan = dma_claim_unused_channel(true);
     dma_channel_config dma_cfg = dma_channel_get_default_config(tx_dma_chan);
@@ -36,46 +53,37 @@ static void onewire_task_func(void *arg)
     // Configure DMA to write to PIO TX FIFO
     channel_config_set_transfer_data_size(&dma_cfg, DMA_SIZE_8); // Transfer 8-bit data
     channel_config_set_read_increment(&dma_cfg, true);          // Increment read pointer
-    channel_config_set_dreq(&dma_cfg, pio_get_dreq(pio, tx_sm, true)); // Use TX FIFO DREQ
-
-    static const char data[] = "BLHeli\364\175";
-    static const uint DATA_SIZE = count_of(data) - 1; // minus 1 to omit the NUL terminator
+    channel_config_set_dreq(&dma_cfg, pio_get_dreq(pio, sm, true)); // Use TX FIFO DREQ
 
     dma_channel_set_config(tx_dma_chan, &dma_cfg, false);
-    dma_channel_set_write_addr(tx_dma_chan, &pio->txf[tx_sm], false);
+    dma_channel_set_write_addr(tx_dma_chan, &pio->txf[sm], false);
 
     irq_set_exclusive_handler(DMA_IRQ_0, tx_dma_handler);
     dma_channel_set_irq0_enabled(tx_dma_chan, true);
     irq_set_enabled(DMA_IRQ_0, true);
 
-    uint32_t ulNotifications;
-    for (ulNotifications = 0;
-        (ulNotifications & ONEWIRE_NOTIFY_EXIT_TASK) == 0;
-        xTaskNotifyWait(0, ONEWIRE_NOTIFY_XFER_DONE | ONEWIRE_NOTIFY_EXIT_TASK, &ulNotifications, portMAX_DELAY))
-    {     
-        dma_channel_set_read_addr(tx_dma_chan, data, false);
-        dma_channel_set_trans_count(tx_dma_chan, DATA_SIZE, true);
-        vTaskDelay(pdMS_TO_TICKS(100)); // just to make it look good on the 'scope
-    }
-
-    irq_set_enabled(DMA_IRQ_0, false);
-    dma_channel_cleanup(tx_dma_chan);
-    dma_channel_unclaim(tx_dma_chan);
-    tx_dma_chan = -1;
-
-    vTaskDelete(NULL);
-}
-
-void onewire_init()
-{
-    configASSERT(!onewire_task_handle);
-    configASSERT(xTaskCreate(onewire_task_func, "1wire", ONEWIRE_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &onewire_task_handle) == pdPASS);
-    configASSERT(onewire_task_handle);
+    onewire_rx_start();
 }
 
 void onewire_exit()
 {
-    configASSERT(onewire_task_handle);
-    xTaskNotify(onewire_task_handle, ONEWIRE_NOTIFY_EXIT_TASK, eSetBits);
-    onewire_task_handle = NULL;
+    irq_set_enabled(DMA_IRQ_0, false);
+    dma_channel_cleanup(tx_dma_chan);
+    dma_channel_unclaim(tx_dma_chan);
+    tx_dma_chan = -1;
+}
+
+void onewire_tx(const void * buf, uint size)
+{
+    onewire_task_handle = xTaskGetCurrentTaskHandle();
+    onewire_tx_start();
+    dma_channel_set_read_addr(tx_dma_chan, buf, false);
+    dma_channel_set_trans_count(tx_dma_chan, size, true);
+    uint32_t ulNotifications = 0;
+    xTaskNotifyWait(0, ONEWIRE_NOTIFY_XFER_DONE, &ulNotifications, portMAX_DELAY);
+    while (!pio_sm_is_tx_fifo_empty(pio, sm))
+        /* wait */;
+    while (pio_sm_get_pc(pio, sm) != TX_PULL)
+        /* wait */;
+    onewire_rx_start();
 }

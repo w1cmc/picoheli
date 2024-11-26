@@ -101,5 +101,5 @@ pico_set_program_name(picoheli "picoheli")
 pico_set_program_version(picoheli "0.0")
 pico_add_extra_outputs(picoheli)
 
-pico_generate_pio_header(picoheli ${CMAKE_CURRENT_LIST_DIR}/src/tx1wire.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/generated)
+pico_generate_pio_header(picoheli ${CMAKE_CURRENT_LIST_DIR}/src/onewire.pio OUTPUT_DIR ${CMAKE_CURRENT_LIST_DIR}/generated)
 target_include_directories(picoheli PUBLIC ${CMAKE_CURRENT_LIST_DIR}/generated)

@@ -15,6 +15,7 @@
 #include <pico/stdlib.h>
 //
 #include "command.h"
+#include "onewire.h"
 
 // Put the buffer in BSS because there's not enough stack space.
 static char buf[configSTATS_BUFFER_MAX_LENGTH];
@@ -136,6 +137,13 @@ static void run_ticks(const int argc, const char *argv[])
     printf("%lu ticks elapsed, %lu ms per tick\n", xTaskGetTickCount(), portTICK_PERIOD_MS);
 }
 
+static void run_blheli(const int argc, const char *argv[])
+{
+    static const char data[] = "BLHeli\364\175";
+    static const uint size = count_of(data) - 1; // minus 1 to omit the NUL terminator
+    onewire_tx(data, size);
+}
+
 static void run_help(const int argc, const char *argv[]);
 
 typedef struct {
@@ -154,6 +162,7 @@ static const cmd_ent_t cmds [] = {
     { "top", run_top, "Print task time statistics", 1, 1},
     { "ticks", run_ticks, "Print current tick count", 1, 1},
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
+    { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
     { "help", run_help, "Shows this message", 1, 1},
 };
 
