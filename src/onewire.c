@@ -16,19 +16,14 @@ static uint onewire_pgm_start;
 static PIO const pio = pio0;
 static const uint sm = 0;
 
-static inline void onewire_program_restart(uint offset)
-{
-    pio_sm_exec(pio, sm, pio_encode_jmp(offset));
-}
-
 static inline void onewire_tx_start()
 {
-    onewire_program_restart(onewire_pgm_start + onewire_tx_offset);
+   pio_sm_exec(pio, sm, pio_encode_jmp(onewire_pgm_start + onewire_tx_offset));
 }
 
 static inline void onewire_rx_start()
 {
-    onewire_program_restart(onewire_pgm_start + onewire_rx_offset);
+   pio_sm_exec(pio, sm, pio_encode_jmp(onewire_pgm_start + onewire_rx_offset));
 }
 
 static void tx_dma_handler()

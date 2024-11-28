@@ -24,7 +24,7 @@ static char buf[configSTATS_BUFFER_MAX_LENGTH];
 static char buf[1024];
 #endif
 
-static void run_date(const int argc, const char *argv[])
+static void run_date(int argc, const char *argv[])
 {
     const time_t now = time(NULL);
     const struct tm * const ptm = localtime(&now);
@@ -32,7 +32,7 @@ static void run_date(const int argc, const char *argv[])
     puts(buf);
 }
 
-static void run_ps(const int argc, const char *argv[])
+static void run_ps(int argc, const char *argv[])
 {
     vTaskList(buf);
     puts("Task          State  Priority  Stack        "
@@ -40,7 +40,7 @@ static void run_ps(const int argc, const char *argv[])
     puts(buf);   
 }
 
-static void run_free(const int argc, const char *argv[])
+static void run_free(int argc, const char *argv[])
 {
     printf(
         "Configured total heap size:\t%d\n"
@@ -50,7 +50,7 @@ static void run_free(const int argc, const char *argv[])
         xPortGetMinimumEverFreeHeapSize());
 }
 
-static void run_top(const int argc, const char *argv[])
+static void run_top(int argc, const char *argv[])
 {
     /* A buffer into which the execution times will be
      * written, in ASCII form.  This buffer is assumed to be large enough to
@@ -66,7 +66,7 @@ static void run_top(const int argc, const char *argv[])
 }
 
 /* Derived from pico-examples/clocks/hello_48MHz/hello_48MHz.c */
-static void run_freqs(const int argc, const char *argv[])
+static void run_freqs(int argc, const char *argv[])
 {   
     uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
     uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
@@ -89,13 +89,13 @@ static void run_freqs(const int argc, const char *argv[])
     // Can't measure clk_ref / xosc as it is the ref
 }
 
-static void run_set_sys_clock_48mhz(const int argc, const char *argv[])
+static void run_set_sys_clock_48mhz(int argc, const char *argv[])
 {
     set_sys_clock_48mhz();
     setup_default_uart();
 }
 
-static void run_set_sys_clock_khz(const int argc, const char *argv[])
+static void run_set_sys_clock_khz(int argc, const char *argv[])
 {
     const int khz = atoi(argv[0]);
     bool configured = set_sys_clock_khz(khz, false);
@@ -120,7 +120,7 @@ static void run_set_sys_clock_khz(const int argc, const char *argv[])
     setup_default_uart();
 }
 
-static void run_gpio(const int argc, const char *argv[]) {
+static void run_gpio(int argc, const char *argv[]) {
     char *end = 0;
     const unsigned int gp = strtoul(argv[1], &end, 0);
     if (*argv[1] && !*end && 0 <= gp && gp <= 28) {
@@ -134,23 +134,73 @@ static void run_gpio(const int argc, const char *argv[]) {
     }
 }
 
-static void run_ticks(const int argc, const char *argv[])
+static void run_pull(int argc, const char *argv[])
+{
+    char * end = 0;
+    const unsigned int gp = strtoul(argv[1], &end, 0);
+    if (*argv[1] && !*end && 0 <= gp && gp <= 28) {
+        const int up = !strcmp(argv[0], "pup");
+        if (up)
+            gpio_pull_up(gp);
+        else
+            gpio_pull_down(gp);
+    }
+    else {
+        puts("error: expecting a number between 0 and 28");
+    }
+}
+
+static int flip(int gp)
+{
+    static int up = 0;
+    if (up)
+        gpio_pull_up(ONEWIRE_PIN);
+    else
+        gpio_pull_down(ONEWIRE_PIN);
+    up = !up;
+}
+
+static void run_pulse(int argc, const char *argv[])
+{
+    const int nt = argc - 1;
+    const size_t tsz = sizeof(int) * nt;
+    int * const t = alloca(tsz);
+    int *tp = t;
+
+    memset(t, 0, tsz);
+    for (--argc, ++argv; argc; --argc, ++argv) {
+        char * end = 0;
+        *tp++ = strtoul(*argv, &end, 0);
+        if (!**argv || *end) {
+            puts("error: expecting a number of ms");
+            return;
+        }
+    }
+
+    for (tp = t; tp < &t[nt]; ++tp) {
+        flip(ONEWIRE_PIN);
+        vTaskDelay(pdMS_TO_TICKS(*tp));
+    }
+    flip(ONEWIRE_PIN);
+}
+
+static void run_ticks(int argc, const char *argv[])
 {
     printf("%lu ticks elapsed, %lu ms per tick\n", xTaskGetTickCount(), portTICK_PERIOD_MS);
 }
 
-static void run_blheli(const int argc, const char *argv[])
+static void run_blheli(int argc, const char *argv[])
 {
-    static const char data[] = "BLHeli\364\175";
+    static const char data[] = "\000BLHeli\364\175";
     static const uint size = count_of(data) - 1; // minus 1 to omit the NUL terminator
     onewire_tx(data, size);
 }
 
-static void run_help(const int argc, const char *argv[]);
+static void run_help(int argc, const char *argv[]);
 
 typedef struct {
     const char * command;
-    void (* const function)(const int argc, const char *argv[]);
+    void (* const function)(int argc, const char *argv[]);
     const char * help;
     int min_argc, max_argc;
 } cmd_ent_t;
@@ -158,6 +208,8 @@ typedef struct {
 static const cmd_ent_t cmds [] = {
     { "clr", run_gpio, "Reset GPIO (turn it off)", 2, 2},
     { "set", run_gpio, "Set GPIO (turn it on)", 2, 2},
+    { "pup", run_pull, "Configure pull-up on GPIO", 2, 2},
+    { "pdn", run_pull, "Configure pull-down on GPIO", 2, 2},
     { "date", run_date, "Print current system date and time", 1, 1},
     { "free", run_free, "Print current heap stats", 1, 1},
     { "ps", run_ps, "Print current task stats", 1, 1},
@@ -165,6 +217,7 @@ static const cmd_ent_t cmds [] = {
     { "ticks", run_ticks, "Print current tick count", 1, 1},
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
     { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
+    { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},
     { "help", run_help, "Shows this message", 1, 1},
 };
 
@@ -209,7 +262,7 @@ static const cmd_ent_t * command_find(const char *command)
     return NULL;
 }
 
-static void run_help(const int argc, const char *argv[])
+static void run_help(int argc, const char *argv[])
 {
     int i;
 
