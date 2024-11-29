@@ -191,9 +191,24 @@ static void run_ticks(int argc, const char *argv[])
 
 static void run_blheli(int argc, const char *argv[])
 {
-    static const char data[] = "\000BLHeli\364\175";
-    static const uint size = count_of(data) - 1; // minus 1 to omit the NUL terminator
-    onewire_tx(data, size);
+    static const char tx_buf[] = "\000BLHeli\364\175";
+    static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
+    static char rx_buf[9];
+    static const uint deadbeef[] = { 0xdeadbeef, 0xdeadbeef, 0xdeadbeef };
+    static const uint rx_size = count_of(rx_buf);
+
+    memcpy(rx_buf, deadbeef, rx_size);
+    const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    if (n == 0) {
+        puts("no data received");
+        return;
+    }
+
+    int i;
+    for (i=0; i<n; ++i) {
+        printf("%02x ", rx_buf[i]);
+    }
+    putchar('\n');
 }
 
 static void run_help(int argc, const char *argv[]);
