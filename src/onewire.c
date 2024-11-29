@@ -123,14 +123,14 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
 #else
     dma_channel_set_write_addr(rx_dma_chan, rx_buf, false);
     dma_channel_set_trans_count(rx_dma_chan, rx_size, true);
+    uint xfer = rx_size;
     TickType_t timeout = (TickType_t) 2000; // (rx_size * 15000 / BPS + 0.5);
     if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(timeout)) == 0) {
         // transfer timed out
+        xfer -= dma_channel_hw_addr(rx_dma_chan)->transfer_count;
         dma_channel_abort(rx_dma_chan);
         puts("DMA timed out");
     }
-
-    const uint xfer = rx_size - dma_channel_hw_addr(rx_dma_chan)->transfer_count;
 
     printf("DMA transfers = %d\n", xfer);
     return xfer;
