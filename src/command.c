@@ -193,11 +193,9 @@ static void run_blheli(int argc, const char *argv[])
 {
     static const char tx_buf[] = "\000BLHeli\364\175";
     static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
-    static char rx_buf[9];
-    static const uint deadbeef[] = { 0xdeadbeef, 0xdeadbeef, 0xdeadbeef };
+    static char rx_buf[24];
     static const uint rx_size = count_of(rx_buf);
 
-    memcpy(rx_buf, deadbeef, rx_size);
     const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     if (n == 0) {
         puts("no data received");
