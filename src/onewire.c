@@ -108,23 +108,19 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     while (!pio_sm_is_tx_fifo_empty(pio, sm) || pio_sm_get_pc(pio, sm) != TX_PULL)
         /* wait */;
-    
+
     onewire_rx_start();
     if (!rx_buf || !rx_size)
         return 0;
 
-#if 1
+#if 0
     int i;
     for (i=0; i<rx_size; ++i) {
-        const union {
-            uint32_t w;
-            uint8_t b[4];
-        } d = { .w = pio_sm_get_blocking(pio, sm), };
-        ((uint8_t *) rx_buf)[i] = d.b[3];
+        const uint32_t w = pio_sm_get_blocking(pio, sm);
+        ((uint8_t *) rx_buf)[i] = w >> 24;
     }
     return rx_size;
 #else
-    pio_sm_clear_fifos(pio, sm);
     dma_channel_set_write_addr(rx_dma_chan, rx_buf, false);
     dma_channel_set_trans_count(rx_dma_chan, rx_size, true);
     TickType_t timeout = (TickType_t) 2000; // (rx_size * 15000 / BPS + 0.5);

@@ -25,6 +25,7 @@ rxbit:                  ; the first data bit (12 cycles incl wait, set).
     wait 1 pin 0        ; Wait for line to return to idle state.
     jmp rxloop          ; Don't push data if we didn't see good framing.
 rxstop:                 ; No delay before returning to start; a little slack is
+    in null, 24
     push                ; important in case the TX clock is slightly too fast.
 .wrap
 
