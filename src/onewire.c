@@ -19,6 +19,11 @@ static const uint sm = 0;
 
 static uint16_t crc[1] __attribute__((aligned(sizeof(uint16_t))));
 
+static inline bool tx_busy()
+{
+    return !pio_sm_is_tx_fifo_empty(pio, sm) || pio_sm_get_pc(pio, sm) != TX_PULL;
+}
+
 static inline void onewire_tx_start()
 {
     pio_sm_exec(pio, sm, pio_encode_jmp(onewire_pgm_start));
@@ -122,12 +127,12 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
 {
     onewire_task_handle = xTaskGetCurrentTaskHandle();
     pio_sm_clear_fifos(pio, sm);
-    crc[0] = crc16(tx_buf, tx_size);
+    crc[0] = crc16(tx_buf, tx_size); // chained DMA will transmit CRC
     onewire_tx_start();
     dma_channel_set_read_addr(tx_dma_chan, tx_buf, false);
     dma_channel_set_trans_count(tx_dma_chan, tx_size, true);
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-    while (!pio_sm_is_tx_fifo_empty(pio, sm) || pio_sm_get_pc(pio, sm) != TX_PULL)
+    while (tx_busy())
         /* wait */;
 
     onewire_rx_start();
@@ -139,18 +144,18 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
 
     uint xfer = rx_size;
     for (;;) {
-        // If the IRQ sends notification, then the DMA finished
+        // If the IRQ sends notification, then the DMA finished ...
         if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)))
             return rx_size;
 
-        // The DMA is still running, but is it making progress?
+        // ... otherwise, the DMA is still running, but is it making progress?
         const uint cnt = dma_channel_hw_addr(rx_dma_chan)->transfer_count;
         if (cnt < xfer) {
             xfer = cnt;
-            continue; // yes: keep waiting.
+            continue; // Yes: keep waiting.
         }
 
-        // no: give up and go home.
+        // No: give up and go home.
         dma_channel_abort(rx_dma_chan);
         break;
     }
