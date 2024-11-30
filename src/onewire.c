@@ -123,6 +123,15 @@ void onewire_exit()
     rx_dma_chan = -1;
 }
 
+void onewire_break()
+{
+    onewire_tx_start();
+    pio_sm_put_blocking(pio, sm, 0);
+    while (tx_busy())
+        /* wait */;
+    onewire_rx_start();
+}
+
 uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size)
 {
     onewire_task_handle = xTaskGetCurrentTaskHandle();

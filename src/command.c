@@ -211,6 +211,7 @@ static void run_blheli(int argc, const char *argv[])
 //    static const char tx_buf[] = "\000BLHeli\364\175";
     static const char tx_buf[] = "BLHeli";
     static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
+    onewire_break();
     run_onewire(tx_buf, tx_size);
 }
 
