@@ -113,26 +113,26 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
     if (!rx_buf || !rx_size)
         return 0;
 
-#if 0
-    int i;
-    for (i=0; i<rx_size; ++i) {
-        const uint32_t w = pio_sm_get_blocking(pio, sm);
-        ((uint8_t *) rx_buf)[i] = w >> 24;
-    }
-    return rx_size;
-#else
     dma_channel_set_write_addr(rx_dma_chan, rx_buf, false);
     dma_channel_set_trans_count(rx_dma_chan, rx_size, true);
+
     uint xfer = rx_size;
-    TickType_t timeout = (TickType_t) 2000; // (rx_size * 15000 / BPS + 0.5);
-    if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(timeout)) == 0) {
-        // transfer timed out
-        xfer -= dma_channel_hw_addr(rx_dma_chan)->transfer_count;
+    for (;;) {
+        // If the IRQ sends notification, then the DMA finished
+        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)))
+            return rx_size;
+
+        // The DMA is still running, but is it making progress?
+        const uint cnt = dma_channel_hw_addr(rx_dma_chan)->transfer_count;
+        if (cnt < xfer) {
+            xfer = cnt;
+            continue; // yes: keep waiting.
+        }
+
+        // no: give up and go home.
         dma_channel_abort(rx_dma_chan);
-        puts("DMA timed out");
+        break;
     }
 
-    printf("DMA transfers = %d\n", xfer);
-    return xfer;
-#endif
+    return rx_size - xfer;
 }
