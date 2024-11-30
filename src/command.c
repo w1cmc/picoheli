@@ -189,13 +189,10 @@ static void run_ticks(int argc, const char *argv[])
     printf("%lu ticks elapsed, %lu ms per tick\n", xTaskGetTickCount(), portTICK_PERIOD_MS);
 }
 
-static void run_blheli(int argc, const char *argv[])
+static void run_onewire(const char * tx_buf, uint tx_size)
 {
-    static const char tx_buf[] = "\000BLHeli\364\175";
-    static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
-    static char rx_buf[24];
+    char rx_buf[24];
     static const uint rx_size = count_of(rx_buf);
-
     const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     if (n == 0) {
         puts("no data received");
@@ -207,6 +204,27 @@ static void run_blheli(int argc, const char *argv[])
         printf("%02x ", rx_buf[i]);
     }
     putchar('\n');
+}
+
+static void run_blheli(int argc, const char *argv[])
+{
+    static const char tx_buf[] = "\000BLHeli\364\175";
+    static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
+    run_onewire(tx_buf, tx_size);
+}
+
+static void run_ping(int argc, const char *argv[])
+{
+    static const char tx_buf[] = { 0xfd, 0x00, 0x40, 0x90 };
+    static const uint tx_size = count_of(tx_buf);
+    run_onewire(tx_buf, tx_size);
+}
+
+static void run_restart(int argc, const char *argv[])
+{
+    static const char tx_buf[] = { 0, 0, 0, 0 };
+    static const uint tx_size = count_of(tx_buf);
+    run_onewire(tx_buf, tx_size);
 }
 
 static void run_help(int argc, const char *argv[]);
@@ -230,6 +248,8 @@ static const cmd_ent_t cmds [] = {
     { "ticks", run_ticks, "Print current tick count", 1, 1},
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
     { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
+    { "ping", run_ping, "Send keep alive to ESC", 1, 1},
+    { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},
     { "help", run_help, "Shows this message", 1, 1},
 };
