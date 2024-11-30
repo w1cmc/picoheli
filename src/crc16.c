@@ -36,17 +36,12 @@ static const uint16_t lut[] = {
 	0x8201, 0x42c0, 0x4380, 0x8341, 0x4100, 0x81c1, 0x8081, 0x4040,
 };
 
-uint16_t crc16(uint8_t data, uint16_t crc)
-{
-	return (crc >> 8) ^ lut[(crc ^ data) & 255];
-}
-
-uint16_t crc16_buf(const uint8_t *buf, unsigned int size)
+uint16_t crc16(const uint8_t *buf, unsigned int size)
 {
 	const uint8_t * const end = &buf[size];
 	uint16_t crc = 0;  // Initial value; sometimes 0xffff
 	while (buf < end)
-		crc = crc16(*buf++, crc);
+		crc = (crc >> 8) ^ lut[(crc ^ *buf++) & 255];
 	return crc;
 }
 

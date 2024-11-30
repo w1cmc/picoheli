@@ -208,21 +208,22 @@ static void run_onewire(const char * tx_buf, uint tx_size)
 
 static void run_blheli(int argc, const char *argv[])
 {
-    static const char tx_buf[] = "\000BLHeli\364\175";
+//    static const char tx_buf[] = "\000BLHeli\364\175";
+    static const char tx_buf[] = "BLHeli";
     static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
     run_onewire(tx_buf, tx_size);
 }
 
 static void run_ping(int argc, const char *argv[])
 {
-    static const char tx_buf[] = { 0xfd, 0x00, 0x40, 0x90 };
+    static const char tx_buf[] = { 0xfd, 0 };
     static const uint tx_size = count_of(tx_buf);
     run_onewire(tx_buf, tx_size);
 }
 
 static void run_restart(int argc, const char *argv[])
 {
-    static const char tx_buf[] = { 0, 0, 0, 0 };
+    static const char tx_buf[] = { 0, 0 };
     static const uint tx_size = count_of(tx_buf);
     run_onewire(tx_buf, tx_size);
 }
