@@ -102,6 +102,7 @@ void onewire_exit()
 uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size)
 {
     onewire_task_handle = xTaskGetCurrentTaskHandle();
+    pio_sm_clear_fifos(pio, sm);
     onewire_tx_start();
     dma_channel_set_read_addr(tx_dma_chan, tx_buf, false);
     dma_channel_set_trans_count(tx_dma_chan, tx_size, true);
