@@ -3,6 +3,12 @@
 #include "task.h"
 #include "tusb.h"
 
+#define INTERFACE_VERSION 16500U
+#define IF_VER_HI ((INTERFACE_VERSION) >> 8)
+#define IF_VER_LO ((INTERFACE_VERSION) & 255)
+
+#define PROTO_VER 106
+
 enum {
     cmd_InterfaceTestAlive = 0x30,
     cmd_ProtocolGetVersion,
@@ -190,7 +196,7 @@ static void dump_pkt(pkt_t * pkt)
         break;
     case cmd_ProtocolGetVersion:
         pkt->param_len = 1;
-        pkt->param[0] = 6;
+        pkt->param[0] = PROTO_VER;
         break;
     case cmd_InterfaceGetName:
         pkt->param_len = 8;
@@ -198,8 +204,8 @@ static void dump_pkt(pkt_t * pkt)
         break;
     case cmd_InterfaceGetVersion:
         pkt->param_len = 2;
-        pkt->param[0] = 0;
-        pkt->param[1] = 0;
+        pkt->param[0] = IF_VER_HI; // big-endian
+        pkt->param[1] = IF_VER_LO;
         break;
     case cmd_InterfaceExit:
         pkt->param_len = 1;
