@@ -85,7 +85,7 @@ target_link_libraries(
 )
 
 add_compile_definitions(USE_PRINTF)
-pico_enable_stdio_uart(picoheli 0)
+pico_enable_stdio_uart(picoheli 1)
 if($<BOOL:LIB_PICO_STDIO_UART>)
     add_compile_definitions(PICO_STDIO_UART_SUPPORT_CHARS_AVAILABLE_CALLBACK=1)
 else()

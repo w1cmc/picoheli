@@ -40,7 +40,6 @@ static void dma_irq_handler(int irqn, int dma_chan)
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     vTaskNotifyGiveFromISR(onewire_task_handle, &xHigherPriorityTaskWoken);
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-
 }
 
 static void tx_dma_handler()
