@@ -3,12 +3,42 @@
 #include "task.h"
 #include "tusb.h"
 
+enum {
+    cmd_InterfaceTestAlive = 0x30,
+    cmd_ProtocolGetVersion,
+    cmd_InterfaceGetName,
+    cmd_InterfaceGetVersion,
+    cmd_InterfaceExit,
+    cmd_DeviceReset,
+    cmd_DeviceGetID, // removed in protocol rev 6/106
+    cmd_DeviceInitFlash,
+    cmd_DeviceEraseAll,
+    cmd_DevicePageErase,
+    cmd_DeviceRead,
+    cmd_DeviceWrite,
+};
+
+enum {
+    ACK_OK,                // 0x00 Operation succeeded. No Error.
+    ACK_I_UNKNOWN_ERROR,   // 0x01 Failure in the interface for unknown reason (unused)
+    ACK_I_INVALID_CMD,     // 0x02 Interface recognized an unknown command
+    ACK_I_INVALID_CRC,     // 0x03 Interface calculated a different CRC / data transmission form Master failed
+    ACK_I_VERIFY_ERROR,    // 0x04 Interface did a successful write operation over C2, but the read back data did not match
+    ACK_D_INVALID_COMMAND, // 0x05 Device communication failed and the Status was 0x00 instead of 0x0D (unused)
+    ACK_D_COMMAND_FAILED,  // 0x06 Device communication failed and the Status was 0x02 or 0x03 instead of 0x0D (unused)
+    ACK_D_UNKNOWN_ERROR,   // 0x07 Device communication failed and the Status was of unknow value instead of 0x0D (unused)
+    ACK_I_INVALID_CHANNEL, // 0x08 Interface recognized: unavailable ESC Port/Pin is adressed in Multi ESC Mode
+    ACK_I_INVALID_PARAM,   // 0x09 Interface recognized an invalid Parameter
+    ACK_D_GENERAL_ERROR,   // 0x0F Device communication failed for unknown reason
+};
+
 typedef struct {
-    int cmd;
-    int addr;
-    int param_len;
-    char param[256];
-} pkt_t;
+    uint8_t start;
+    uint8_t cmd;
+    uint16_t addr;
+    uint8_t param_len;
+    uint8_t param[259]; // param + ack + crc
+} __attribute__((packed)) pkt_t;
 
 static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 {
@@ -50,12 +80,12 @@ static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 	return (crc << 8) ^ lut[(crc >> 8) ^ data];
 }
 
-static const pkt_t *fsm(int c)
+static pkt_t *fsm(int c)
 {
     typedef enum { IDLE, START, COMMAND, ADDRESS_HI, ADDRESS_LO, PARAM_LEN, PARAM, CRC_HI, CRC_LO } state_t;
     static state_t curr = IDLE;
     static uint16_t crc = 0;
-    static int param_cnt;
+    static uint8_t param_cnt;
     static pkt_t pkt = {0};
     state_t next = IDLE;
 
@@ -91,6 +121,9 @@ static const pkt_t *fsm(int c)
     crc = crc16_xmodem(c, curr == START ? 0 : crc);
     
     switch (curr) {
+        case START:
+            pkt.start = 0x2E;
+            break;
         case COMMAND:
             pkt.cmd = c;
             break;
@@ -102,7 +135,7 @@ static const pkt_t *fsm(int c)
             break;
         case PARAM_LEN:
             param_cnt = 0;
-            pkt.param_len = c ? c : 256;
+            pkt.param_len = c;
             break;
         case PARAM:
             pkt.param[param_cnt++] = c;
@@ -142,20 +175,65 @@ static const char * cmd_label(int cmd)
     return labels[cmd & 15];
 }
 
-static void dump_pkt(const pkt_t * pkt)
+static void dump_pkt(pkt_t * pkt)
 {
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d\n",
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr,
         pkt->param_len);
+
+    switch (pkt->cmd) {
+    case cmd_InterfaceTestAlive:
+        pkt->param_len = 1;
+        pkt->param[0] = 0;
+        break;
+    case cmd_ProtocolGetVersion:
+        pkt->param_len = 1;
+        pkt->param[0] = 6;
+        break;
+    case cmd_InterfaceGetName:
+        pkt->param_len = 8;
+        memcpy(pkt->param, "Pico4way", pkt->param_len);
+        break;
+    case cmd_InterfaceGetVersion:
+        pkt->param_len = 2;
+        pkt->param[0] = 0;
+        pkt->param[1] = 0;
+        break;
+    case cmd_InterfaceExit:
+        pkt->param_len = 1;
+        pkt->param[0] = 0;
+        break;
+    case cmd_DeviceInitFlash:
+        pkt->param_len = 3;
+        pkt->param[0] = 0xE8; // XXX: get these from the device
+        pkt->param[1] = 0xB2;
+        pkt->param[2] = 'd';
+        break;
+    default:
+        return;
+    }
+
+    uint8_t * const ack = &pkt->param[pkt->param_len];
+    *ack = ACK_OK;
+    
+    uint8_t * ptr = &pkt->start;
+    uint8_t * const end = &ack[1];
+    uint16_t crc = 0;
+    while (ptr < end)
+        crc = crc16_xmodem(*ptr++, crc);
+    *ptr++ = (crc >> 8);
+    *ptr++ = (crc & 255);
+
+    tud_cdc_write(pkt, ptr - &pkt->start);
 }
 
 void tud_cdc_rx_cb(uint8_t itf)
 {
     int c;
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
-        const pkt_t * const pkt = fsm(c);
+        pkt_t * const pkt = fsm(c);
         if (pkt)
             dump_pkt(pkt);
     }
