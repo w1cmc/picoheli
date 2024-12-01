@@ -22,6 +22,10 @@ enum {
     cmd_DevicePageErase,
     cmd_DeviceRead,
     cmd_DeviceWrite,
+    cmd_DeviceC2CK_LOW,
+    cmd_DeviceReadEEprom,
+    cmd_DeviceWriteEEprom,
+    cmd_InterfaceSetMode,
 };
 
 enum {
@@ -36,6 +40,14 @@ enum {
     ACK_I_INVALID_CHANNEL, // 0x08 Interface recognized: unavailable ESC Port/Pin is adressed in Multi ESC Mode
     ACK_I_INVALID_PARAM,   // 0x09 Interface recognized an invalid Parameter
     ACK_D_GENERAL_ERROR,   // 0x0F Device communication failed for unknown reason
+};
+
+// The 4 ways the interface can be used
+enum {
+    ifMode_SilC2,  // Silicon Labs C2
+    ifMode_SilBLB, // Silicon Labs BLHeli Bootloader
+    ifMode_AtmBLB, // Atmel BLHeli Bootloader
+    ifMode_AtmSK,  // Atmel SimonK Bootloader
 };
 
 typedef struct {
@@ -140,8 +152,8 @@ static pkt_t *fsm(int c)
             pkt.addr |= c;
             break;
         case PARAM_LEN:
-            param_cnt = 0;
             pkt.param_len = c;
+            param_cnt = 0;
             break;
         case PARAM:
             pkt.param[param_cnt++] = c;
@@ -181,6 +193,16 @@ static const char * cmd_label(int cmd)
     return labels[cmd & 15];
 }
 
+static bool crc_ok(const pkt_t * pkt)
+{
+    const uint8_t * ptr = &pkt->start;
+    const uint8_t * const end = &pkt->param[pkt->param_len + sizeof(uint16_t)];
+    uint16_t crc = 0;
+    while (ptr < end)
+        crc = crc16_xmodem(*ptr, crc);
+    return !crc;
+}
+
 static void dump_pkt(pkt_t * pkt)
 {
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d\n",
@@ -216,6 +238,8 @@ static void dump_pkt(pkt_t * pkt)
         pkt->param[0] = 0xE8; // XXX: get these from the device
         pkt->param[1] = 0xB2;
         pkt->param[2] = 'd';
+        break;
+    case cmd_InterfaceSetMode:
         break;
     default:
         return;
