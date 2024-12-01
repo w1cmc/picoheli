@@ -98,11 +98,18 @@ static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 	return (crc << 8) ^ lut[(crc >> 8) ^ data];
 }
 
+static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
+{
+    uint16_t crc = 0;
+    while (ptr < end)
+        crc = crc16_xmodem(*ptr++, crc);
+    return crc;
+}
+
 static pkt_t *fsm(int c)
 {
     typedef enum { IDLE, START, COMMAND, ADDRESS_HI, ADDRESS_LO, PARAM_LEN, PARAM, CRC_HI, CRC_LO } state_t;
     static state_t curr = IDLE;
-    static uint16_t crc = 0;
     static uint8_t param_cnt;
     static pkt_t pkt = {0};
     state_t next = IDLE;
@@ -136,11 +143,10 @@ static pkt_t *fsm(int c)
     }
 
     curr = next;
-    crc = crc16_xmodem(c, curr == START ? 0 : crc);
     
     switch (curr) {
         case START:
-            pkt.start = 0x2E;
+            pkt.start = c;
             break;
         case COMMAND:
             pkt.cmd = c;
@@ -158,10 +164,12 @@ static pkt_t *fsm(int c)
         case PARAM:
             pkt.param[param_cnt++] = c;
             break;
-        case CRC_LO:
-            if (crc == 0)
-                return &pkt;
+        case CRC_HI:
+            pkt.param[param_cnt++] = c;
             break;
+        case CRC_LO:
+            pkt.param[param_cnt++] = c;
+            return &pkt;
         default:
             break;
     }
@@ -193,23 +201,24 @@ static const char * cmd_label(int cmd)
     return labels[cmd & 15];
 }
 
-static bool crc_ok(const pkt_t * pkt)
+static bool check_crc(const pkt_t * pkt)
 {
-    const uint8_t * ptr = &pkt->start;
-    const uint8_t * const end = &pkt->param[pkt->param_len + sizeof(uint16_t)];
-    uint16_t crc = 0;
-    while (ptr < end)
-        crc = crc16_xmodem(*ptr, crc);
-    return !crc;
+    return !crc16_range(&pkt->start, &pkt->param[pkt->param_len + sizeof(uint16_t)]);
 }
 
 static void dump_pkt(pkt_t * pkt)
 {
-    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d\n",
+    const bool crc_ok = check_crc(pkt);
+    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d CRC %s\n",
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr,
-        pkt->param_len);
+        pkt->param_len,
+        crc_ok ? "OK" : "bad");
+
+    pkt->start ^= 1; // flip the LSB to indicate a reply
+
+    uint8_t result = crc_ok ? ACK_OK : ACK_I_INVALID_CRC;
 
     switch (pkt->cmd) {
     case cmd_InterfaceTestAlive:
@@ -245,15 +254,10 @@ static void dump_pkt(pkt_t * pkt)
         return;
     }
 
-    uint8_t * const ack = &pkt->param[pkt->param_len];
-    *ack = ACK_OK;
-    
-    uint8_t * ptr = &pkt->start;
-    uint8_t * const end = &ack[1];
-    uint16_t crc = 0;
-    while (ptr < end)
-        crc = crc16_xmodem(*ptr++, crc);
-    *ptr++ = (crc >> 8);
+    uint8_t * ptr = &pkt->param[pkt->param_len];
+    *ptr++ = result;
+    const uint16_t crc = crc16_range(&pkt->start, ptr);
+    *ptr++ = (crc >> 8); // big-endian
     *ptr++ = (crc & 255);
 
     tud_cdc_write(pkt, ptr - &pkt->start);
