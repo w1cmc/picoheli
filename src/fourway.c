@@ -78,6 +78,8 @@ static const pkt_t *fsm(int c)
         case PARAM:
             if (param_cnt == pkt.param_len)
                 next = CRC_HI;
+            else
+                next = PARAM;
             break;
         case CRC_LO:
             if (c == 0x2F)
@@ -115,7 +117,6 @@ static const pkt_t *fsm(int c)
 
     return NULL;
 }
-
 
 static const char * cmd_label(int cmd)
 {
