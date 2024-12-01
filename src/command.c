@@ -191,7 +191,7 @@ static void run_ticks(int argc, const char *argv[])
 
 static void run_onewire(const char * tx_buf, uint tx_size)
 {
-    char rx_buf[24];
+    static char rx_buf[256];
     static const uint rx_size = count_of(rx_buf);
     const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     if (n == 0) {
@@ -218,6 +218,34 @@ static void run_blheli(int argc, const char *argv[])
 static void run_ping(int argc, const char *argv[])
 {
     static const char tx_buf[] = { 0xfd, 0 };
+    static const uint tx_size = count_of(tx_buf);
+    run_onewire(tx_buf, tx_size);
+}
+
+static void run_addr(int argc, const char *argv[])
+{
+    char *end = 0;
+    uint16_t addr = strtoul(argv[1], &end, 0);
+    if (!*argv[1] || *end) {
+        puts("error: expecting an address between 0 and 65535");
+        return;
+    }
+
+    char tx_buf[] = { 0xff, 0, (addr >> 8), addr & 255 };
+    static const uint tx_size = count_of(tx_buf);
+    run_onewire(tx_buf, tx_size);
+}
+
+static void run_read(int argc, const char *argv[])
+{
+    char *end = 0;
+    uint16_t size = strtoul(argv[1], &end, 0);
+    if (!*argv[1] || *end) {
+        puts("error: expecting a number of bytes between 1 and 255");
+        return;
+    }
+
+    char tx_buf[] = { 3, size };
     static const uint tx_size = count_of(tx_buf);
     run_onewire(tx_buf, tx_size);
 }
@@ -251,6 +279,8 @@ static const cmd_ent_t cmds [] = {
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
     { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
     { "ping", run_ping, "Send keep alive to ESC", 1, 1},
+    { "addr", run_addr, "Set the read/buffer address in ESC", 2, 2 },
+    { "read", run_read, "Read n bytes from the address set above", 2, 2 },
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},
     { "help", run_help, "Shows this message", 1, 1},
