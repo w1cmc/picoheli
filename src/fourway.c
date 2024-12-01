@@ -3,7 +3,7 @@
 #include "task.h"
 #include "tusb.h"
 
-#define INTERFACE_VERSION 16500U
+#define INTERFACE_VERSION 0xC800U
 #define IF_VER_HI ((INTERFACE_VERSION) >> 8)
 #define IF_VER_LO ((INTERFACE_VERSION) & 255)
 
@@ -206,7 +206,7 @@ static bool check_crc(const pkt_t * pkt)
     return !crc16_range(&pkt->start, &pkt->param[pkt->param_len + sizeof(uint16_t)]);
 }
 
-static void dump_pkt(pkt_t * pkt)
+static void handle_pkt(pkt_t * pkt)
 {
     const bool crc_ok = check_crc(pkt);
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d CRC %s\n",
@@ -218,7 +218,7 @@ static void dump_pkt(pkt_t * pkt)
 
     pkt->start ^= 1; // flip the LSB to indicate a reply
 
-    uint8_t result = crc_ok ? ACK_OK : ACK_I_INVALID_CRC;
+    uint8_t ack = crc_ok ? ACK_OK : ACK_I_INVALID_CRC;
 
     switch (pkt->cmd) {
     case cmd_InterfaceTestAlive:
@@ -255,7 +255,7 @@ static void dump_pkt(pkt_t * pkt)
     }
 
     uint8_t * ptr = &pkt->param[pkt->param_len];
-    *ptr++ = result;
+    *ptr++ = ack;
     const uint16_t crc = crc16_range(&pkt->start, ptr);
     *ptr++ = (crc >> 8); // big-endian
     *ptr++ = (crc & 255);
@@ -269,6 +269,6 @@ void tud_cdc_rx_cb(uint8_t itf)
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
         pkt_t * const pkt = fsm(c);
         if (pkt)
-            dump_pkt(pkt);
+            handle_pkt(pkt);
     }
 }
