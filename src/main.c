@@ -23,11 +23,23 @@
 
 #define INIT_TASK_STACK_SIZE 256
 
-static TaskHandle_t init_task_handle;
+static TaskHandle_t init_task_handle, blinky_task_handle;
+
+static void blinky_task_func(void *param)
+{
+    gpio_init(25);
+    gpio_set_dir(25, GPIO_OUT);
+    bool flip = false;
+    while (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250)) == pdFALSE) {
+        flip = !flip;
+        gpio_put(25, flip);
+    }
+
+    vTaskDelete(NULL);
+}
 
 static void init_task_func(void *param)
 {
-    onewire_init();
     tusb_init();
 #if !LIB_PICO_STDIO_UART
     stdio_usb_glue_init();
@@ -41,14 +53,19 @@ static void init_task_func(void *param)
         tud_task();
         tud_cdc_write_flush();
     }
-    onewire_exit();
+
     vTaskDelete(NULL);
 }
 
 int main()
 {
+    onewire_init();
+
     configASSERT(xTaskCreate(init_task_func, "init", INIT_TASK_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &init_task_handle) == pdPASS);
     configASSERT(init_task_handle);
+
+    configASSERT(xTaskCreate(blinky_task_func, "blinky", 128, NULL, configMAX_PRIORITIES - 2, &blinky_task_handle));
+    configASSERT(blinky_task_handle);
 
 #if 0
     setvbuf(stdout, NULL, _IONBF, 1);  // specify that the stream should be unbuffered
@@ -60,5 +77,6 @@ int main()
     vTaskStartScheduler();
     /* should never reach here */
     abort();
+    onewire_exit();
     return 0;
 }
