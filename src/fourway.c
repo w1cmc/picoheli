@@ -209,11 +209,12 @@ static bool check_crc(const pkt_t * pkt)
 static void handle_pkt(pkt_t * pkt)
 {
     const bool crc_ok = check_crc(pkt);
-    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d CRC %s\n",
+    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d Param=%d CRC %s\n",
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr,
         pkt->param_len,
+        pkt->param[0],
         crc_ok ? "OK" : "bad");
 
     pkt->start ^= 1; // flip the LSB to indicate a reply
