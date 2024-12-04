@@ -140,6 +140,7 @@ static void run_pull(int argc, const char *argv[])
     const unsigned int gp = strtoul(argv[1], &end, 0);
     if (*argv[1] && !*end && 0 <= gp && gp <= 28) {
         const int up = !strcmp(argv[0], "pup");
+        gpio_set_dir(gp, GPIO_IN);
         if (up)
             gpio_pull_up(gp);
         else
