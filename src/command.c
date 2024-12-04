@@ -212,7 +212,7 @@ static void run_blheli(int argc, const char *argv[])
 //    static const char tx_buf[] = "\000BLHeli\364\175";
     static const char tx_buf[] = "BLHeli";
     static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
-    onewire_break();
+    onewire_putc('\000');
     run_onewire(tx_buf, tx_size);
 }
 
@@ -258,6 +258,11 @@ static void run_restart(int argc, const char *argv[])
     run_onewire(tx_buf, tx_size);
 }
 
+static void run_break(int argc, const char *argv[])
+{
+    onewire_break();
+}
+
 static void run_help(int argc, const char *argv[]);
 
 typedef struct {
@@ -282,6 +287,7 @@ static const cmd_ent_t cmds [] = {
     { "ping", run_ping, "Send keep alive to ESC", 1, 1},
     { "addr", run_addr, "Set the read/buffer address in ESC", 2, 2 },
     { "read", run_read, "Read n bytes from the address set above", 2, 2 },
+    { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},
     { "help", run_help, "Shows this message", 1, 1},

@@ -131,6 +131,13 @@ void onewire_putc(int c)
     onewire_rx_start();
 }
 
+void onewire_break()
+{
+    gpio_pull_down(ONEWIRE_PIN);
+    vTaskDelay(pdMS_TO_TICKS(50));
+    gpio_pull_up(ONEWIRE_PIN);
+}
+
 uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size)
 {
     onewire_task_handle = xTaskGetCurrentTaskHandle();
