@@ -7,7 +7,7 @@
 #include "onewire.h"
 
 #define BPS 19200
-#define TX_PULL (onewire_pgm_start + onewire_txloop_offs)
+#define TX_LOOP (onewire_pgm_start + onewire_txloop_offs)
 
 static TaskHandle_t onewire_task_handle;
 
@@ -21,7 +21,7 @@ static uint16_t crc[1] __attribute__((aligned(sizeof(uint16_t))));
 
 static inline bool tx_busy()
 {
-    return !pio_sm_is_tx_fifo_empty(pio, sm) || pio_sm_get_pc(pio, sm) != TX_PULL;
+    return !pio_sm_is_tx_fifo_empty(pio, sm) || pio_sm_get_pc(pio, sm) != TX_LOOP;
 }
 
 static inline void onewire_tx_start()
@@ -122,10 +122,10 @@ void onewire_exit()
     rx_dma_chan = -1;
 }
 
-void onewire_break()
+void onewire_putc(int c)
 {
     onewire_tx_start();
-    pio_sm_put_blocking(pio, sm, 0);
+    pio_sm_put_blocking(pio, sm, c);
     while (tx_busy())
         /* wait */;
     onewire_rx_start();
