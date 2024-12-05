@@ -240,15 +240,26 @@ static void run_addr(int argc, const char *argv[])
 static void run_read(int argc, const char *argv[])
 {
     char *end = 0;
-    uint16_t size = strtoul(argv[1], &end, 0);
-    if (!*argv[1] || *end) {
-        puts("error: expecting a number of bytes between 1 and 255");
+    const uint rx_size = strtoul(argv[1], &end, 0);
+    if (!*argv[1] || *end || rx_size < 1 || 65535 < rx_size) {
+        puts("error: expecting a number of bytes between 1 and 65535");
         return;
     }
 
-    char tx_buf[] = { 3, size };
+    const uint8_t tx_buf[] = { 3, rx_size };
     static const uint tx_size = count_of(tx_buf);
-    run_onewire(tx_buf, tx_size);
+    char * const rx_buf = malloc(rx_size); // no check: CRT panics on OOM
+    const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    if (n == 0)
+        puts("no data received");
+
+    int i = 0;
+    while (i < n) {
+        printf("%02x", rx_buf[i]);
+        putchar((++i % 8) ? ' ' : '\n');
+    }
+
+    free(rx_buf);
 }
 
 static void run_restart(int argc, const char *argv[])
