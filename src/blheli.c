@@ -58,6 +58,25 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     return ACK_D_GENERAL_ERROR;
 }
 
+int blheli_DeviceRead(pkt_t *pkt)
+{
+    const size_t rx_size = pkt->param[0]; // 1-255 reads n bytes; 0 reads 256 bytes.
+    int ack = blheli_set_addr(pkt->addr);
+
+    if (ack == ACK_OK)
+        ack = blheli_read_flash(pkt->param, rx_size);
+
+    if (ack == ACK_OK) {
+        pkt->param_len = rx_size;
+    }
+    else {
+        pkt->param_len = 1;
+        pkt->param[0] = 0;
+    }
+
+    return ack;
+}
+
 int blheli_DeviceReset(pkt_t *pkt)
 {
     static const char tx_buf[] = { 0, 0 };
@@ -84,7 +103,7 @@ int blheli_set_addr(uint16_t addr)
 
 int blheli_read_flash(void *rx_buf, size_t rx_size)
 {
-    const uint8_t tx_buf[] = { 3, rx_size };
+    const uint8_t tx_buf[] = { 3, (rx_size > 255 ? 0 : rx_size) };
     static const size_t tx_size = sizeof(tx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);

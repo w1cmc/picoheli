@@ -251,8 +251,8 @@ static void run_read(int argc, const char *argv[])
 {
     char *end = 0;
     const uint rx_size = strtoul(argv[1], &end, 0);
-    if (!*argv[1] || *end || rx_size < 1 || 65535 < rx_size) {
-        puts("error: expecting a number of bytes between 1 and 65535");
+    if (!*argv[1] || *end || rx_size < 1 || 256 < rx_size) {
+        puts("error: expecting a number of bytes between 1 and 256");
         return;
     }
 

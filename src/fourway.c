@@ -163,11 +163,6 @@ static const char * cmd_label(int cmd)
     return labels[cmd & 15];
 }
 
-static int handle_DeviceInitFlash(pkt_t * pkt)
-{
-    return blheli_DeviceInitFlash(pkt);
-}
-
 static bool check_crc(const pkt_t * pkt)
 {
     return !crc16_range(&pkt->start, &pkt->param[pkt->param_len + sizeof(uint16_t)]);
@@ -211,13 +206,13 @@ static void handle_pkt(pkt_t * pkt)
         pkt->param[0] = 0;
         break;
     case cmd_DeviceInitFlash:
-        ack = handle_DeviceInitFlash(pkt);
+        ack = blheli_DeviceInitFlash(pkt);
         break;
     case cmd_InterfaceSetMode:
         break;
     case cmd_DeviceRead:
-        pkt->param_len = pkt->param[0];
-
+        ack = blheli_DeviceRead(pkt);
+        break;
     default:
         return;
     }
