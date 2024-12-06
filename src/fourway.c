@@ -219,6 +219,7 @@ static void handle_pkt(pkt_t * pkt)
 
     uint8_t * ptr = &pkt->param[pkt->param_len];
     *ptr++ = ack;
+    pkt->addr = __builtin_bswap16(pkt->addr); // big-endian
     const uint16_t crc = crc16_range(&pkt->start, ptr);
     *ptr++ = (crc >> 8); // big-endian
     *ptr++ = (crc & 255);
