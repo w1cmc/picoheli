@@ -12,6 +12,7 @@
 #include <tusb.h>
 // All the rest
 #include "onewire.h"
+#include "fourway.h"
 #include "stdio_cli.h"
 #ifndef PICO_STDIO_UART
 #include "stdio_usb_glue.h"
@@ -60,6 +61,7 @@ static void init_task_func(void *param)
 int main()
 {
     onewire_init();
+    fourway_init();
 
     configASSERT(xTaskCreate(init_task_func, "init", INIT_TASK_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &init_task_handle) == pdPASS);
     configASSERT(init_task_handle);

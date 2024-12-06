@@ -16,6 +16,8 @@
 //
 #include "command.h"
 #include "onewire.h"
+#include "fourway.h"
+#include "blheli.h"
 
 // Put the buffer in BSS because there's not enough stack space.
 #if configSTATS_BUFFER_MAX_LENGTH < 0xFFFFU
@@ -209,18 +211,25 @@ static void run_onewire(const char * tx_buf, uint tx_size)
 
 static void run_blheli(int argc, const char *argv[])
 {
-//    static const char tx_buf[] = "\000BLHeli\364\175";
-    static const char tx_buf[] = "BLHeli";
-    static const uint tx_size = count_of(tx_buf) - 1; // minus 1 to omit the NUL terminator
-    onewire_putc('\000');
-    run_onewire(tx_buf, tx_size);
+    static pkt_t pkt = {
+        .start = 0x2f,
+        .cmd = cmd_DeviceInitFlash,
+        .param_len = 1,
+        .param = {0}, // XXX: ESC number from argv?
+    };
+
+    if (blheli_DeviceInitFlash(&pkt) == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
 }
 
 static void run_ping(int argc, const char *argv[])
 {
-    static const char tx_buf[] = { 0xfd, 0 };
-    static const uint tx_size = count_of(tx_buf);
-    run_onewire(tx_buf, tx_size);
+    if (blheli_ping() == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
 }
 
 static void run_addr(int argc, const char *argv[])
@@ -232,9 +241,10 @@ static void run_addr(int argc, const char *argv[])
         return;
     }
 
-    char tx_buf[] = { 0xff, 0, (addr >> 8), addr & 255 };
-    static const uint tx_size = count_of(tx_buf);
-    run_onewire(tx_buf, tx_size);
+    if (blheli_set_addr(addr) == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
 }
 
 static void run_read(int argc, const char *argv[])
@@ -246,27 +256,20 @@ static void run_read(int argc, const char *argv[])
         return;
     }
 
-    const uint8_t tx_buf[] = { 3, rx_size };
-    static const uint tx_size = count_of(tx_buf);
     char * const rx_buf = malloc(rx_size); // no check: CRT panics on OOM
-    const uint n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
-    if (n == 0)
-        puts("no data received");
-
-    int i = 0;
-    while (i < n) {
-        printf("%02x", rx_buf[i]);
-        putchar((++i % 8) ? ' ' : '\n');
-    }
-
+    if (blheli_read_flash(rx_buf, rx_size) == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
     free(rx_buf);
 }
 
 static void run_restart(int argc, const char *argv[])
 {
-    static const char tx_buf[] = { 0, 0 };
-    static const uint tx_size = count_of(tx_buf);
-    run_onewire(tx_buf, tx_size);
+    if (blheli_DeviceReset(NULL) == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
 }
 
 static void run_break(int argc, const char *argv[])

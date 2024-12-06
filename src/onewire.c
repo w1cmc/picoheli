@@ -138,7 +138,7 @@ void onewire_break()
     gpio_pull_up(ONEWIRE_PIN);
 }
 
-uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size)
+size_t onewire_xfer(const void * tx_buf, size_t tx_size, void * rx_buf, size_t rx_size)
 {
     onewire_task_handle = xTaskGetCurrentTaskHandle();
     pio_sm_clear_fifos(pio, sm);
@@ -157,14 +157,14 @@ uint onewire_xfer(const void * tx_buf, uint tx_size, void * rx_buf, uint rx_size
     dma_channel_set_write_addr(rx_dma_chan, rx_buf, false);
     dma_channel_set_trans_count(rx_dma_chan, rx_size, true);
 
-    uint xfer = rx_size;
+    size_t xfer = rx_size;
     for (;;) {
         // If the IRQ sends notification, then the DMA finished ...
         if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)))
             return rx_size;
 
         // ... otherwise, the DMA is still running, but is it making progress?
-        const uint cnt = dma_channel_hw_addr(rx_dma_chan)->transfer_count;
+        const unsigned int cnt = dma_channel_hw_addr(rx_dma_chan)->transfer_count;
         if (cnt < xfer) {
             xfer = cnt;
             continue; // Yes: keep waiting.
