@@ -250,6 +250,12 @@ static void run_addr(int argc, const char *argv[])
 static void run_read(int argc, const char *argv[])
 {
     char *end = 0;
+    if (argc == 3) {
+        run_addr(argc, argv);
+        --argc;
+        ++argv;
+    }
+
     const uint rx_size = strtoul(argv[1], &end, 0);
     if (!*argv[1] || *end || rx_size < 1 || 256 < rx_size) {
         puts("error: expecting a number of bytes between 1 and 256");
@@ -300,7 +306,7 @@ static const cmd_ent_t cmds [] = {
     { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
     { "ping", run_ping, "Send keep alive to ESC", 1, 1},
     { "addr", run_addr, "Set the read/buffer address in ESC", 2, 2 },
-    { "read", run_read, "Read n bytes from the address set above", 2, 2 },
+    { "read", run_read, "Read n bytes from the address set above", 2, 3 },
     { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},

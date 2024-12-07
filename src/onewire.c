@@ -1,6 +1,7 @@
 #include <hardware/dma.h>
 #include <FreeRTOS.h>
 #include <task.h>
+#include <semphr.h>
 #include <stdio.h>
 #include "crc16.h"
 #include "onewire.pio.h"
@@ -9,7 +10,8 @@
 #define BPS 19200
 #define TX_LOOP (onewire_pgm_start + onewire_txloop_offs)
 
-static TaskHandle_t onewire_task_handle;
+static SemaphoreHandle_t onewire_mutex;
+static SemaphoreHandle_t tx_done, rx_done;
 
 static int tx_dma_chan, crc_dma_chan, rx_dma_chan;
 static uint onewire_pgm_start;
@@ -34,22 +36,20 @@ static inline void onewire_rx_start()
     pio_sm_exec(pio, sm, pio_encode_jmp(onewire_pgm_start + onewire_rxstart_offs));
 }
 
-static void dma_irq_handler(int irqn, int dma_chan)
-{
-    dma_irqn_acknowledge_channel(irqn, dma_chan);
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    vTaskNotifyGiveFromISR(onewire_task_handle, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
-
 static void tx_dma_handler()
 {
-    dma_irq_handler(0, crc_dma_chan);
+    dma_channel_acknowledge_irq0(crc_dma_chan);
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xSemaphoreGiveFromISR(tx_done, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 static void rx_dma_handler()
 {
-    dma_irq_handler(1, rx_dma_chan);
+    dma_channel_acknowledge_irq1(rx_dma_chan);
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    xSemaphoreGiveFromISR(rx_done, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 void onewire_init()
@@ -107,6 +107,10 @@ void onewire_init()
 
     // put the pin in receive/input mode
     onewire_rx_start();
+
+    onewire_mutex = xSemaphoreCreateMutex();
+    tx_done = xSemaphoreCreateBinary();
+    rx_done = xSemaphoreCreateBinary();
 }
 
 void onewire_exit()
@@ -140,13 +144,12 @@ void onewire_break()
 
 size_t onewire_xfer(const void * tx_buf, size_t tx_size, void * rx_buf, size_t rx_size)
 {
-    onewire_task_handle = xTaskGetCurrentTaskHandle();
     pio_sm_clear_fifos(pio, sm);
     crc[0] = crc16(tx_buf, tx_size); // chained DMA will transmit CRC
     onewire_tx_start();
     dma_channel_set_read_addr(tx_dma_chan, tx_buf, false);
     dma_channel_set_trans_count(tx_dma_chan, tx_size, true);
-    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    xSemaphoreTake(tx_done, portMAX_DELAY);
     while (tx_busy())
         /* wait */;
 
@@ -160,7 +163,7 @@ size_t onewire_xfer(const void * tx_buf, size_t tx_size, void * rx_buf, size_t r
     size_t xfer = rx_size;
     for (;;) {
         // If the IRQ sends notification, then the DMA finished ...
-        if (ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)))
+        if (xSemaphoreTake(rx_done, pdMS_TO_TICKS(100)) == pdTRUE)
             return rx_size;
 
         // ... otherwise, the DMA is still running, but is it making progress?
@@ -172,6 +175,7 @@ size_t onewire_xfer(const void * tx_buf, size_t tx_size, void * rx_buf, size_t r
 
         // No: give up and go home.
         dma_channel_abort(rx_dma_chan);
+        xSemaphoreTake(rx_done, portMAX_DELAY);
         break;
     }
 

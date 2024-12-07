@@ -34,6 +34,20 @@ static void putbuf(const uint8_t * const buf, size_t size)
         putchar('\n');
 }
 
+static void scribble(void * buf, size_t size)
+{
+    static const uint8_t deadbeef[] = { 0xef, 0xbe, 0xad, 0xde };
+    const uint8_t * src = deadbeef;
+    const uint8_t * const src_end = &src[sizeof(deadbeef)];
+    uint8_t * dst = buf;
+    uint8_t * const dst_end = &dst[size];
+    while (dst < dst_end) {
+        *dst++ = *src++;
+        if (src == src_end)
+            src = deadbeef;
+    }
+}
+
 int blheli_DeviceInitFlash(pkt_t * pkt)
 {
     static const char tx_buf[] = "BLHeli";
@@ -41,6 +55,7 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     uint8_t rx_buf[16];
     static const size_t rx_size = sizeof(rx_buf);
 
+    scribble(rx_buf, rx_size);
     onewire_putc('\000');
     const int n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);
@@ -60,16 +75,16 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
 
 int blheli_DeviceRead(pkt_t *pkt)
 {
-    const size_t rx_size = pkt->param[0]; // 1-255 reads n bytes; 0 reads 256 bytes.
     int ack = blheli_set_addr(pkt->addr);
 
-    if (ack == ACK_OK)
-        ack = blheli_read_flash(pkt->param, rx_size);
-
     if (ack == ACK_OK) {
-        pkt->param_len = rx_size;
+        const size_t rx_size = pkt->param[0] ? pkt->param[0] : 256; // 1-255 reads n bytes; 0 reads 256 bytes.
+        ack = blheli_read_flash(pkt->param, rx_size);
+        if (ack == ACK_OK)
+            pkt->param_len = rx_size; // silently masks off bits 8-31.
     }
-    else {
+
+    if (ack != ACK_OK) {
         pkt->param_len = 1;
         pkt->param[0] = 0;
     }

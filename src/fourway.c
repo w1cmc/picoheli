@@ -210,6 +210,9 @@ static void handle_pkt(pkt_t * pkt)
         break;
     case cmd_InterfaceSetMode:
         break;
+    case cmd_DeviceReset:
+        ack = blheli_DeviceReset(pkt);
+        break;
     case cmd_DeviceRead:
         ack = blheli_DeviceRead(pkt);
         break;
