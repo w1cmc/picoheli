@@ -45,7 +45,8 @@ enum {
 typedef struct {
     uint8_t start;
     uint8_t cmd;
-    uint16_t addr;
+    uint8_t addr_msb; // N.B. big-endian
+    uint8_t addr_lsb;
     uint8_t param_len;
     uint8_t param[259]; // param + ack + crc
 } __attribute__((packed)) pkt_t;

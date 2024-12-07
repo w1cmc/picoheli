@@ -75,7 +75,7 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
 
 int blheli_DeviceRead(pkt_t *pkt)
 {
-    int ack = blheli_set_addr(pkt->addr);
+    int ack = blheli_set_addr(&pkt->addr_msb);
 
     if (ack == ACK_OK) {
         const size_t rx_size = pkt->param[0] ? pkt->param[0] : 256; // 1-255 reads n bytes; 0 reads 256 bytes.
@@ -104,9 +104,9 @@ int blheli_DeviceReset(pkt_t *pkt)
     return n == 0 ? ACK_OK : ACK_D_GENERAL_ERROR;
 }
 
-int blheli_set_addr(uint16_t addr)
+int blheli_set_addr(const uint8_t * const addr)
 {
-    const char tx_buf[] = { 0xff, 0, (addr >> 8), addr & 255 };
+    const char tx_buf[] = { 0xff, 0, addr[0], addr[1] };
     static const uint tx_size = sizeof(tx_buf);
     char rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);

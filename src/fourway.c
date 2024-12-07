@@ -114,10 +114,10 @@ static pkt_t *fsm(int c)
             pkt.cmd = c;
             break;
         case ADDRESS_HI:
-            pkt.addr = (c << 8);
+            pkt.addr_msb = c;
             break;
         case ADDRESS_LO:
-            pkt.addr |= c;
+            pkt.addr_lsb = c;
             break;
         case PARAM_LEN:
             pkt.param_len = c;
@@ -174,7 +174,7 @@ static void handle_pkt(pkt_t * pkt)
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d Param=%d CRC %s\n",
         pkt->cmd,
         cmd_label(pkt->cmd),
-        pkt->addr,
+        pkt->addr_lsb | (pkt->addr_msb << 8),
         pkt->param_len,
         pkt->param[0],
         crc_ok ? "OK" : "bad");
@@ -205,13 +205,18 @@ static void handle_pkt(pkt_t * pkt)
         pkt->param_len = 1;
         pkt->param[0] = 0;
         break;
+    case cmd_DeviceReset:
+        ack = blheli_DeviceReset(pkt);
+        break;
     case cmd_DeviceInitFlash:
         ack = blheli_DeviceInitFlash(pkt);
         break;
-    case cmd_InterfaceSetMode:
+    case cmd_DeviceEraseAll:
+        ack = ACK_I_INVALID_CMD; // not valid for SilBLB nor AtmBLB
         break;
-    case cmd_DeviceReset:
-        ack = blheli_DeviceReset(pkt);
+    case cmd_InterfaceSetMode:
+        // if (pkt->param_len != 1 || pkt->param[0] != 1)
+        //     ack = ACK_I_INVALID_PARAM;
         break;
     case cmd_DeviceRead:
         ack = blheli_DeviceRead(pkt);
@@ -222,7 +227,6 @@ static void handle_pkt(pkt_t * pkt)
 
     uint8_t * ptr = &pkt->param[pkt->param_len];
     *ptr++ = ack;
-    pkt->addr = __builtin_bswap16(pkt->addr); // big-endian
     const uint16_t crc = crc16_range(&pkt->start, ptr);
     *ptr++ = (crc >> 8); // big-endian
     *ptr++ = (crc & 255);
