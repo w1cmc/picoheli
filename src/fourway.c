@@ -16,7 +16,6 @@
 #define PROTO_VER 106
 
 static const UBaseType_t pktQueueLength = 8;
-static StaticQueue_t pktQueueBuffer;
 static QueueHandle_t pktQueueHandle;
 static TaskHandle_t fourwayTaskHandle;
 
