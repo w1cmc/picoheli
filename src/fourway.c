@@ -215,8 +215,8 @@ static void handle_pkt(pkt_t * pkt)
         ack = ACK_I_INVALID_CMD; // not valid for SilBLB nor AtmBLB
         break;
     case cmd_InterfaceSetMode:
-        // if (pkt->param_len != 1 || pkt->param[0] != 1)
-        //     ack = ACK_I_INVALID_PARAM;
+        if (pkt->param_len != 1 || pkt->param[0] != 1)
+            ack = ACK_I_INVALID_PARAM;
         break;
     case cmd_DeviceRead:
         ack = blheli_DeviceRead(pkt);
@@ -231,7 +231,13 @@ static void handle_pkt(pkt_t * pkt)
     *ptr++ = (crc >> 8); // big-endian
     *ptr++ = (crc & 255);
 
-    tud_cdc_write(pkt, ptr - &pkt->start);
+    uint8_t * pos = &pkt->start;
+    while (pos < ptr) {
+        if (tud_cdc_write_available() > 0)
+            pos += tud_cdc_write(pos, ptr - pos);
+        else
+            vTaskDelay(pdMS_TO_TICKS(20));
+    }
 }
 
 void tud_cdc_rx_cb(uint8_t itf)
@@ -246,6 +252,10 @@ void tud_cdc_rx_cb(uint8_t itf)
     }
 
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+void tud_cdc_tx_complete_cb(uint8_t itf)
+{
 }
 
 static void fourway_task_func(void *param)
