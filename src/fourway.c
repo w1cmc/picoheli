@@ -232,10 +232,14 @@ static void handle_pkt(pkt_t * pkt)
 
     uint8_t * pos = &pkt->start;
     while (pos < ptr) {
-        if (tud_cdc_write_available() > 0)
-            pos += tud_cdc_write(pos, ptr - pos);
+        uint32_t tx_size = tud_cdc_write_available();
+        if (tx_size > ptr - pos)
+            tx_size = ptr - pos;
+        if (tx_size > 0)
+            tud_cdc_write(pos, tx_size);
         else
             vTaskDelay(pdMS_TO_TICKS(20));
+        pos += tx_size;
     }
 }
 
