@@ -18,6 +18,7 @@
 static const UBaseType_t pktQueueLength = 8;
 static QueueHandle_t pktQueueHandle;
 static TaskHandle_t fourwayTaskHandle;
+static SemaphoreHandle_t txAvailMutex;
 
 static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 {
@@ -238,7 +239,7 @@ static void handle_pkt(pkt_t * pkt)
         if (tx_size > 0)
             tud_cdc_write(pos, tx_size);
         else
-            vTaskDelay(pdMS_TO_TICKS(20));
+            xSemaphoreTake(txAvailMutex, pdMS_TO_TICKS(50));
         pos += tx_size;
     }
 }
@@ -259,6 +260,7 @@ void tud_cdc_rx_cb(uint8_t itf)
 
 void tud_cdc_tx_complete_cb(uint8_t itf)
 {
+    xSemaphoreGive(txAvailMutex);
 }
 
 static void fourway_task_func(void *param)
@@ -273,6 +275,7 @@ static void fourway_task_func(void *param)
 void fourway_init()
 {
     pktQueueHandle = xQueueCreate(pktQueueLength, sizeof(pkt_t));
+    txAvailMutex = xSemaphoreCreateBinary();
     configASSERT(pktQueueHandle);
     configASSERT(xTaskCreate(fourway_task_func, "4w-if", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &fourwayTaskHandle));
     configASSERT(fourwayTaskHandle);

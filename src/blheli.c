@@ -61,10 +61,11 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     puts(__func__);
     putbuf(rx_buf, n);
     if (n == 9 && strncmp(rx_buf, "471", 3) == 0 && rx_buf[8] == '0') {
-        pkt->param_len = 3;
-        pkt->param[0] = rx_buf[4];
-        pkt->param[1] = rx_buf[5];
+        pkt->param_len = 4;
+        pkt->param[0] = rx_buf[5];
+        pkt->param[1] = rx_buf[4];
         pkt->param[2] = rx_buf[3];
+        pkt->param[3] = rx_buf[7];
         return ACK_OK;
     }
 
