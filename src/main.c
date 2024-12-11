@@ -39,16 +39,13 @@ static void blinky_task_func(void *param)
     vTaskDelete(NULL);
 }
 
-static void init_task_func(void *param)
+static void tud_task_func(void *param)
 {
     tusb_init();
 #if !LIB_PICO_STDIO_UART
     stdio_usb_glue_init();
 #endif
-    stdio_init_all();
-#if LIB_PICO_STDIO_UART
-    CLI_Start();
-#endif
+
     while (1)
     {
         tud_task();
@@ -63,12 +60,16 @@ int main()
     onewire_init();
     fourway_init();
 
-    configASSERT(xTaskCreate(init_task_func, "init", INIT_TASK_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &init_task_handle) == pdPASS);
+    configASSERT(xTaskCreate(tud_task_func, "tud", INIT_TASK_STACK_SIZE, 0, configMAX_PRIORITIES - 2, &init_task_handle) == pdPASS);
     configASSERT(init_task_handle);
 
     configASSERT(xTaskCreate(blinky_task_func, "blinky", 128, NULL, configMAX_PRIORITIES - 2, &blinky_task_handle));
     configASSERT(blinky_task_handle);
 
+#if LIB_PICO_STDIO_UART
+    CLI_Start();
+    stdio_init_all();
+#endif
 #if 0
     setvbuf(stdout, NULL, _IONBF, 1);  // specify that the stream should be unbuffered
     printf("\033[2J\033[H");  // Clear Screen
