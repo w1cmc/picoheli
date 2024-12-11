@@ -225,22 +225,21 @@ static void handle_pkt(pkt_t * pkt)
         return;
     }
 
-    uint8_t * ptr = &pkt->param[pkt->param_len];
-    *ptr++ = ack;
-    const uint16_t crc = crc16_range(&pkt->start, ptr);
-    *ptr++ = (crc >> 8); // big-endian
-    *ptr++ = (crc & 255);
-
     uint8_t * pos = &pkt->start;
-    while (pos < ptr) {
-        uint32_t tx_size = tud_cdc_write_available();
-        if (tx_size > ptr - pos)
-            tx_size = ptr - pos;
-        if (tx_size > 0)
-            tud_cdc_write(pos, tx_size);
+    uint8_t * end = &pkt->param[pkt->param_len];
+    *end++ = ack;
+    const uint16_t crc = crc16_range(pos, end);
+    *end++ = (crc >> 8); // big-endian
+    *end++ = (crc & 255);
+
+    while (pos < end) {
+        const uint32_t need = end - pos;
+        const uint32_t avail = tud_cdc_write_available();
+        const uint32_t write_size = need > avail ? avail : need;
+        if (write_size > 0)
+            pos += tud_cdc_write(pos, write_size);
         else
             xSemaphoreTake(txAvailMutex, pdMS_TO_TICKS(50));
-        pos += tx_size;
     }
 }
 
