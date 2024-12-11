@@ -8,12 +8,25 @@
 #include "fourway.h"
 #include "blheli.h"
 
+#define BOOT_START 0x1c00
+
 enum {
     SUCCESS = 0x30,
     ERRORVERIFY = 0xC0,
     ERRORCOMMAND = 0xC1,
     ERRORCRC = 0xC2,
     ERRORPROG = 0xC5
+};
+
+// BLHeli boot loader commands
+enum {
+    OP_RESTART = 0,
+    OP_PROGRAM_FLASH = 1,
+    OP_ERASE_FLASH = 2,
+    OP_READ_FLASH = 3,
+    OP_SET_ADDR = 255,
+    OP_SET_BUFFER = 254,
+    OP_KEEP_ALIVE = 253,
 };
 
 static void putbuf(const uint8_t * const buf, size_t size)
@@ -74,9 +87,22 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     return ACK_D_GENERAL_ERROR;
 }
 
+int blheli_DevicePageErase(pkt_t *pkt)
+{
+    const uint16_t page = pkt->param[0];
+    const uint16_t addr = page << 9; // 512 byte pages
+    if (BOOT_START < addr)
+        return ACK_I_INVALID_PARAM; // trying to overwrite the bootloader
+    int ack = blheli_set_addr(addr);
+    if (ack == ACK_OK)
+        ack = blheli_erase_flash();
+    return ack;
+}
+
 int blheli_DeviceRead(pkt_t *pkt)
 {
-    int ack = blheli_set_addr(&pkt->addr_msb);
+    const uint16_t addr = pkt->addr_msb << 8 + pkt->addr_lsb;
+    int ack = blheli_set_addr(addr);
 
     if (ack == ACK_OK) {
         const size_t rx_size = pkt->param[0] ? pkt->param[0] : 256; // 1-255 reads n bytes; 0 reads 256 bytes.
@@ -97,7 +123,7 @@ int blheli_DeviceReset(pkt_t *pkt)
 {
     static const char tx_buf[] = { 0, 0 };
     static const size_t tx_size = sizeof(tx_buf);
-    char rx_buf[1] = {0};
+    char rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);
@@ -105,9 +131,9 @@ int blheli_DeviceReset(pkt_t *pkt)
     return n == 0 ? ACK_OK : ACK_D_GENERAL_ERROR;
 }
 
-int blheli_set_addr(const uint8_t * const addr)
+int blheli_set_addr(const uint16_t addr)
 {
-    const char tx_buf[] = { 0xff, 0, addr[0], addr[1] };
+    const char tx_buf[] = { 0xff, 0, addr >> 8, addr & 255 }; // big-endian
     static const uint tx_size = sizeof(tx_buf);
     char rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
@@ -119,7 +145,7 @@ int blheli_set_addr(const uint8_t * const addr)
 
 int blheli_read_flash(void *rx_buf, size_t rx_size)
 {
-    const uint8_t tx_buf[] = { 3, (rx_size > 255 ? 0 : rx_size) };
+    const uint8_t tx_buf[] = { OP_READ_FLASH, (rx_size > 255 ? 0 : rx_size) };
     static const size_t tx_size = sizeof(tx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);
@@ -127,11 +153,23 @@ int blheli_read_flash(void *rx_buf, size_t rx_size)
     return n == rx_size ? ACK_OK : ACK_D_GENERAL_ERROR;
 }
 
+int blheli_erase_flash()
+{
+    const uint8_t tx_buf[] = { OP_ERASE_FLASH, 0 };
+    static const size_t tx_size = sizeof(tx_buf);
+    char rx_buf[16] = {0};
+    static const size_t rx_size = sizeof(rx_buf);
+    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    puts(__func__);
+    putbuf(rx_buf, n);
+    return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_GENERAL_ERROR;
+}
+
 int blheli_ping()
 {
-    const uint8_t tx_buf[] = { 0xfd, 0 };
+    const uint8_t tx_buf[] = { OP_KEEP_ALIVE, 0 };
     static const size_t tx_size = sizeof(tx_buf);
-    uint8_t rx_buf[1] = {0};
+    uint8_t rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);

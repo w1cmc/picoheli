@@ -218,6 +218,12 @@ static void handle_pkt(pkt_t * pkt)
         if (pkt->param_len != 1 || pkt->param[0] != 1)
             ack = ACK_I_INVALID_PARAM;
         break;
+    case cmd_DevicePageErase:
+        if (pkt->param_len != 1)
+            ack = ACK_I_INVALID_PARAM;
+        else
+            ack = blheli_DevicePageErase(pkt);
+        break;
     case cmd_DeviceRead:
         ack = blheli_DeviceRead(pkt);
         break;

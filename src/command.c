@@ -241,8 +241,7 @@ static void run_addr(int argc, const char *argv[])
         return;
     }
 
-    const uint8_t be_addr[] = { addr >> 8, addr & 255 };
-    if (blheli_set_addr(be_addr) == ACK_OK)
+    if (blheli_set_addr(addr) == ACK_OK)
         puts("OK");
     else
         puts("Error");

@@ -3,11 +3,13 @@
 #include "fourway.h"
 
 extern int blheli_ping();
-extern int blheli_set_addr(const uint8_t * const addr);
+extern int blheli_set_addr(const uint16_t addr);
 extern int blheli_read_flash(void * rx_buf, size_t rx_size);
+extern int blheli_erase_flash();
 
 extern int blheli_DeviceInitFlash(pkt_t * pkt);
 extern int blheli_DeviceReset(pkt_t * pkt);
+extern int blheli_DevicePageErase(pkt_t * pkt);
 extern int blheli_DeviceRead(pkt_t * pkt);
 
 #endif
