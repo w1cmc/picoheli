@@ -184,6 +184,8 @@ int blheli_read_flash(void *rx_buf, size_t rx_size)
 {
     const uint8_t tx_buf[] = { OP_READ_FLASH, (rx_size > 255 ? 0 : rx_size) };
     static const size_t tx_size = sizeof(tx_buf);
+    // A little sketchy to read 3 more bytes, but we need the CRC and error code.
+    // Since rx_buf is always the param array of a pkt_t, there is enough space.
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size + 3);
     puts(__func__);
     putbuf(rx_buf, n);
