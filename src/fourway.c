@@ -165,7 +165,7 @@ static const char * cmd_label(int cmd)
 
 static bool check_crc(const pkt_t * pkt)
 {
-    return !crc16_range(&pkt->start, &pkt->param[pkt->param_len + sizeof(uint16_t)]);
+    return !crc16_range(&pkt->start, &pkt->param[param_len(pkt) + sizeof(uint16_t)]);
 }
 
 static void handle_pkt(pkt_t * pkt)
@@ -175,64 +175,73 @@ static void handle_pkt(pkt_t * pkt)
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr_lsb | (pkt->addr_msb << 8),
-        pkt->param_len,
+        param_len(pkt),
         pkt->param[0],
         crc_ok ? "OK" : "bad");
 
     pkt->start ^= 1; // flip the LSB to indicate a reply
 
-    uint8_t ack = crc_ok ? ACK_OK : ACK_I_INVALID_CRC;
-
-    switch (pkt->cmd) {
-    case cmd_InterfaceTestAlive:
+    uint8_t ack = ACK_OK;
+    if (!crc_ok) {
+        ack = ACK_I_INVALID_CRC;
         pkt->param_len = 1;
-        pkt->param[0] = 0;
-        break;
-    case cmd_ProtocolGetVersion:
-        pkt->param_len = 1;
-        pkt->param[0] = PROTO_VER;
-        break;
-    case cmd_InterfaceGetName:
-        pkt->param_len = 8;
-        memcpy(pkt->param, "Pico4way", pkt->param_len);
-        break;
-    case cmd_InterfaceGetVersion:
-        pkt->param_len = 2;
-        pkt->param[0] = IF_VER_HI; // big-endian
-        pkt->param[1] = IF_VER_LO;
-        break;
-    case cmd_InterfaceExit:
-        pkt->param_len = 1;
-        pkt->param[0] = 0;
-        break;
-    case cmd_DeviceReset:
-        ack = blheli_DeviceReset(pkt);
-        break;
-    case cmd_DeviceInitFlash:
-        ack = blheli_DeviceInitFlash(pkt);
-        break;
-    case cmd_DeviceEraseAll:
-        ack = ACK_I_INVALID_CMD; // not valid for SilBLB nor AtmBLB
-        break;
-    case cmd_InterfaceSetMode:
-        if (pkt->param_len != 1 || pkt->param[0] != 1)
-            ack = ACK_I_INVALID_PARAM;
-        break;
-    case cmd_DevicePageErase:
-        if (pkt->param_len != 1)
-            ack = ACK_I_INVALID_PARAM;
-        else
-            ack = blheli_DevicePageErase(pkt);
-        break;
-    case cmd_DeviceRead:
-        ack = blheli_DeviceRead(pkt);
-        break;
-    default:
-        return;
+        memset(pkt->param, 0, sizeof(pkt->param));
+    }
+    else {
+        switch (pkt->cmd) {
+        case cmd_InterfaceTestAlive:
+            pkt->param_len = 1;
+            pkt->param[0] = 0;
+            break;
+        case cmd_ProtocolGetVersion:
+            pkt->param_len = 1;
+            pkt->param[0] = PROTO_VER;
+            break;
+        case cmd_InterfaceGetName:
+            pkt->param_len = 8;
+            memcpy(pkt->param, "Pico4way", pkt->param_len);
+            break;
+        case cmd_InterfaceGetVersion:
+            pkt->param_len = 2;
+            pkt->param[0] = IF_VER_HI; // big-endian
+            pkt->param[1] = IF_VER_LO;
+            break;
+        case cmd_InterfaceExit:
+            pkt->param_len = 1;
+            pkt->param[0] = 0;
+            break;
+        case cmd_DeviceReset:
+            ack = blheli_DeviceReset(pkt);
+            break;
+        case cmd_DeviceInitFlash:
+            ack = blheli_DeviceInitFlash(pkt);
+            break;
+        case cmd_DeviceEraseAll:
+            ack = ACK_I_INVALID_CMD; // not valid for SilBLB nor AtmBLB
+            break;
+        case cmd_InterfaceSetMode:
+            if (pkt->param_len != 1 || pkt->param[0] != 1)
+                ack = ACK_I_INVALID_PARAM;
+            break;
+        case cmd_DevicePageErase:
+            if (pkt->param_len != 1)
+                ack = ACK_I_INVALID_PARAM;
+            else
+                ack = blheli_DevicePageErase(pkt);
+            break;
+        case cmd_DeviceRead:
+            ack = blheli_DeviceRead(pkt);
+            break;
+        case cmd_DeviceWrite:
+            ack = blheli_DeviceWrite(pkt);
+            break;
+        default:
+            break;
+        }
     }
 
     uint8_t * pos = &pkt->start;
-    uint8_t * end = &pkt->param[pkt->param_len];
+    uint8_t * end = &pkt->param[param_len(pkt)];
     *end++ = ack;
     const uint16_t crc = crc16_range(pos, end);
     *end++ = (crc >> 8); // big-endian

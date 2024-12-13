@@ -4,6 +4,7 @@
 #include <string.h>
 #include <FreeRTOS.h>
 #include <task.h>
+#include "crc16.h"
 #include "onewire.h"
 #include "fourway.h"
 #include "blheli.h"
@@ -105,7 +106,7 @@ int blheli_DeviceRead(pkt_t *pkt)
     int ack = blheli_set_addr(addr);
 
     if (ack == ACK_OK) {
-        const size_t rx_size = pkt->param[0] ? pkt->param[0] : 256; // 1-255 reads n bytes; 0 reads 256 bytes.
+        const size_t rx_size = byte_size(pkt->param[0]);
         ack = blheli_read_flash(pkt->param, rx_size);
         if (ack == ACK_OK)
             pkt->param_len = rx_size; // silently masks off bits 8-31.
@@ -116,6 +117,21 @@ int blheli_DeviceRead(pkt_t *pkt)
         pkt->param[0] = 0;
     }
 
+    return ack;
+}
+
+int blheli_DeviceWrite(pkt_t *pkt)
+{
+    const uint16_t addr = pkt->addr_msb << 8 + pkt->addr_lsb;
+    int ack = blheli_set_addr(addr);
+    if (ack == ACK_OK) {
+        ack = blheli_set_buffer(pkt->param, param_len(pkt));
+        if (ack == ACK_OK)
+            ack = blheli_program_flash();
+    }
+
+    pkt->param_len = 1;
+    memset(pkt->param, 0, sizeof(pkt->param)); // we miss you, bzero(3)
     return ack;
 }
 
@@ -133,9 +149,9 @@ int blheli_DeviceReset(pkt_t *pkt)
 
 int blheli_set_addr(const uint16_t addr)
 {
-    const char tx_buf[] = { 0xff, 0, addr >> 8, addr & 255 }; // big-endian
+    const uint8_t tx_buf[] = { 0xff, 0, addr >> 8, addr & 255 }; // big-endian
     static const uint tx_size = sizeof(tx_buf);
-    char rx_buf[16] = {0};
+    uint8_t rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);
@@ -143,14 +159,40 @@ int blheli_set_addr(const uint16_t addr)
     return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_GENERAL_ERROR;
 }
 
+int blheli_set_buffer(const void *buf, size_t size)
+{
+    // First transfer sends the buffer size
+    const uint8_t tx_buf[] = { 0xfe, 0, size >> 8, size & 255 }; // big-endian
+    static const uint tx_size = sizeof(tx_buf);
+    uint8_t rx_buf[16] = {0};
+    static const size_t rx_size = sizeof(rx_buf);
+    size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    puts(__func__);
+    putbuf(rx_buf, n);
+    if (n != 1 || rx_buf[0] != SUCCESS)
+        return ACK_D_COMMAND_FAILED;
+
+    // Second transfer sends the buffer itself
+    n = onewire_xfer(buf, size, rx_buf, rx_size);
+    putbuf(rx_buf, n);
+    if (n != 1 || rx_buf[0] != SUCCESS)
+        return ACK_D_COMMAND_FAILED;
+    return ACK_OK;
+}
+
 int blheli_read_flash(void *rx_buf, size_t rx_size)
 {
     const uint8_t tx_buf[] = { OP_READ_FLASH, (rx_size > 255 ? 0 : rx_size) };
     static const size_t tx_size = sizeof(tx_buf);
-    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size + 3);
     puts(__func__);
     putbuf(rx_buf, n);
-    return n == rx_size ? ACK_OK : ACK_D_GENERAL_ERROR;
+    uint8_t * const end = (uint8_t *) rx_buf + n;
+    if (n == rx_size + 3 &&
+        crc16(rx_buf, rx_size + 2) == 0 &&
+        end[-1] == SUCCESS)
+        return ACK_OK;
+    return ACK_D_GENERAL_ERROR;
 }
 
 int blheli_erase_flash()
@@ -162,7 +204,19 @@ int blheli_erase_flash()
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     puts(__func__);
     putbuf(rx_buf, n);
-    return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_GENERAL_ERROR;
+    return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_COMMAND_FAILED;
+}
+
+int blheli_program_flash()
+{
+    const uint8_t tx_buf[] = { OP_PROGRAM_FLASH, 0 };
+    static const size_t tx_size = sizeof(tx_buf);
+    char rx_buf[16] = {0};
+    static const size_t rx_size = sizeof(rx_buf);
+    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
+    puts(__func__);
+    putbuf(rx_buf, n);
+    return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_COMMAND_FAILED;
 }
 
 int blheli_ping()
