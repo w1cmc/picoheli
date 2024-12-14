@@ -18,6 +18,7 @@
 #include "onewire.h"
 #include "fourway.h"
 #include "blheli.h"
+#include "scribble.h"
 
 // Put the buffer in BSS because there's not enough stack space.
 #if configSTATS_BUFFER_MAX_LENGTH < 0xFFFFU
@@ -270,6 +271,40 @@ static void run_read(int argc, const char *argv[])
     free(rx_buf);
 }
 
+static void run_setbuf(int argc, const char *argv[])
+{
+    char * end = 0;
+    const size_t size = strtoul(argv[1], &end, 0);
+    if (!*argv[1] || *end || size < 1 || 255 < size) {
+        puts("error: expecting a number of bytes between 1 and 255");
+        return;
+    }
+
+    uint8_t * const buf = malloc(size);
+    scribble(buf, size);
+    if (blheli_set_buffer(buf, size) == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
+    free(buf);
+}
+
+static void run_erase(int argc, const char *argv[])
+{
+    if (blheli_erase_flash() == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
+}
+
+static void run_program(int argc, const char *argv[])
+{
+    if (blheli_program_flash() == ACK_OK)
+        puts("OK");
+    else
+        puts("Error");
+}
+
 static void run_restart(int argc, const char *argv[])
 {
     if (blheli_DeviceReset(NULL) == ACK_OK)
@@ -307,6 +342,9 @@ static const cmd_ent_t cmds [] = {
     { "ping", run_ping, "Send keep alive to ESC", 1, 1},
     { "addr", run_addr, "Set the read/buffer address in ESC", 2, 2 },
     { "read", run_read, "Read n bytes from the address set above", 2, 3 },
+    { "setbuf", run_setbuf, "Send data to ESC buffer", 2, 2 },
+    { "erase", run_erase, "Erase the ESC flash @address", 1, 1 },
+    { "program", run_program, "Program the ESC flash @address using buffer", 1, 1 },
     { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},

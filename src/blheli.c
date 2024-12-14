@@ -2,9 +2,12 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <FreeRTOS.h>
 #include <task.h>
 #include "crc16.h"
+#include "scribble.h"
+#include "putbuf.h"
 #include "onewire.h"
 #include "fourway.h"
 #include "blheli.h"
@@ -29,38 +32,6 @@ enum {
     OP_SET_BUFFER = 254,
     OP_KEEP_ALIVE = 253,
 };
-
-static void putbuf(const uint8_t * const buf, size_t size)
-{
-    int i;
-
-    if (size == 0) {
-        puts("no data received");
-        return;
-    }
-
-    for (i=0; i<size; ++i) {
-        printf("%02x", buf[i]);
-        putchar((i & 7) == 7 ? '\n' : ' ');
-    }
-    
-    if (i & 7)
-        putchar('\n');
-}
-
-static void scribble(void * buf, size_t size)
-{
-    static const uint8_t deadbeef[] = { 0xef, 0xbe, 0xad, 0xde };
-    const uint8_t * src = deadbeef;
-    const uint8_t * const src_end = &src[sizeof(deadbeef)];
-    uint8_t * dst = buf;
-    uint8_t * const dst_end = &dst[size];
-    while (dst < dst_end) {
-        *dst++ = *src++;
-        if (src == src_end)
-            src = deadbeef;
-    }
-}
 
 int blheli_DeviceInitFlash(pkt_t * pkt)
 {
@@ -122,12 +93,27 @@ int blheli_DeviceRead(pkt_t *pkt)
 
 int blheli_DeviceWrite(pkt_t *pkt)
 {
-    const uint16_t addr = pkt->addr_msb << 8 + pkt->addr_lsb;
-    int ack = blheli_set_addr(addr);
-    if (ack == ACK_OK) {
-        ack = blheli_set_buffer(pkt->param, param_len(pkt));
+    int ack = ACK_OK;
+    const size_t size = param_len(pkt);
+    uint16_t dst = pkt->addr_msb << 8 + pkt->addr_lsb;
+    const uint16_t end = dst + size;
+    uint8_t *src = pkt->param;
+
+    while (dst < end) {
+        uint16_t step = end - dst;
+        if (step > 128)
+            step = 128;
+        
+        ack = blheli_set_addr(dst);
+        if (ack == ACK_OK)
+            ack = blheli_set_buffer(src, step);
         if (ack == ACK_OK)
             ack = blheli_program_flash();
+        if (ack != ACK_OK)
+            break;
+
+        src += step;
+        dst += step;
     }
 
     pkt->param_len = 1;
@@ -149,31 +135,33 @@ int blheli_DeviceReset(pkt_t *pkt)
 
 int blheli_set_addr(const uint16_t addr)
 {
-    const uint8_t tx_buf[] = { 0xff, 0, addr >> 8, addr & 255 }; // big-endian
+    const uint8_t tx_buf[] = { OP_SET_ADDR, 0, addr >> 8, addr & 255 }; // big-endian
     static const uint tx_size = sizeof(tx_buf);
     uint8_t rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
-    puts(__func__);
+    printf("%s(0x%04x)\n", __func__, addr);
     putbuf(rx_buf, n);
     return (n == 1 && rx_buf[0] == SUCCESS) ? ACK_OK : ACK_D_GENERAL_ERROR;
 }
 
 int blheli_set_buffer(const void *buf, size_t size)
 {
-    // First transfer sends the buffer size
-    const uint8_t tx_buf[] = { 0xfe, 0, size >> 8, size & 255 }; // big-endian
+    // There is code in BLHeliBootLoad.inc that looks like it is meant to
+    // handle buffers larger than 255 bytes, but AFAICS it is completely
+    // borken.
+    if (size > 255)
+        return ACK_I_INVALID_PARAM;
+    // First transfer sends the buffer size, gets no reply
+    const uint8_t tx_buf[] = { OP_SET_BUFFER, 0, 0, size }; // big-endian
     static const uint tx_size = sizeof(tx_buf);
-    uint8_t rx_buf[16] = {0};
-    static const size_t rx_size = sizeof(rx_buf);
-    size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
-    puts(__func__);
-    putbuf(rx_buf, n);
-    if (n != 1 || rx_buf[0] != SUCCESS)
-        return ACK_D_COMMAND_FAILED;
+    (void) onewire_xfer(tx_buf, tx_size, NULL, 0);
 
     // Second transfer sends the buffer itself
-    n = onewire_xfer(buf, size, rx_buf, rx_size);
+    uint8_t rx_buf[16] = {0};
+    static const size_t rx_size = sizeof(rx_buf);
+    const size_t n = onewire_xfer(buf, size, rx_buf, rx_size);
+    printf("%s(%d)\n", __func__, size);
     putbuf(rx_buf, n);
     if (n != 1 || rx_buf[0] != SUCCESS)
         return ACK_D_COMMAND_FAILED;
@@ -187,7 +175,7 @@ int blheli_read_flash(void *rx_buf, size_t rx_size)
     // A little sketchy to read 3 more bytes, but we need the CRC and error code.
     // Since rx_buf is always the param array of a pkt_t, there is enough space.
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size + 3);
-    puts(__func__);
+    printf("%s(%d)\n", __func__, rx_size);
     putbuf(rx_buf, n);
     uint8_t * const end = (uint8_t *) rx_buf + n;
     if (n == rx_size + 3 &&

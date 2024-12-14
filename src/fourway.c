@@ -4,6 +4,7 @@
 #include <task.h>
 #include <queue.h>
 #include <tusb.h>
+#include "putbuf.h"
 #include "onewire.h"
 #include "blheli.h"
 #include "fourway.h"
@@ -108,6 +109,7 @@ static pkt_t *fsm(int c)
     
     switch (curr) {
         case START:
+            bzero(&pkt, sizeof(pkt));
             pkt.start = c;
             break;
         case COMMAND:
@@ -170,16 +172,34 @@ static bool check_crc(const pkt_t * pkt)
 
 static void handle_pkt(pkt_t * pkt)
 {
-    const bool crc_ok = check_crc(pkt);
-    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d Param=%d CRC %s\n",
+    bool crc_ok = check_crc(pkt);
+    printf("Cmd=%02X (%s) Addr=%04X Param_len=%d",
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr_lsb | (pkt->addr_msb << 8),
-        param_len(pkt),
-        pkt->param[0],
-        crc_ok ? "OK" : "bad");
+        param_len(pkt));
+    
+    if (param_len(pkt) == 1)
+        printf(" Param=%d", pkt->param[0]);
+    
+    if (crc_ok)
+        puts(" CRC OK");
+    else
+        puts(" CRC bad");
 
     pkt->start ^= 1; // flip the LSB to indicate a reply
+
+    // Quirk: BLHeliSuite sends a zero CRC for cmd_DeviceWrite with param_len = 256
+    if (!crc_ok &&
+        pkt->cmd == cmd_DeviceWrite &&
+        param_len(pkt) == 256 &&
+        pkt->param[256] == 0 &&
+        pkt->param[257] == 0)
+    {
+        puts("Warning: continuing despite a bad CRC because BLHeliSuite is borken");
+        putbuf(&pkt->start, pkt_size(pkt));
+        crc_ok = true;
+    }
 
     uint8_t ack = ACK_OK;
     if (!crc_ok) {
@@ -261,15 +281,12 @@ static void handle_pkt(pkt_t * pkt)
 void tud_cdc_rx_cb(uint8_t itf)
 {
     int c;
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
         pkt_t * const pkt = fsm(c);
         if (pkt)
-            xQueueSendFromISR(pktQueueHandle, pkt, &xHigherPriorityTaskWoken);
+            xQueueSendToBack(pktQueueHandle, pkt, 0);
     }
-
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 void tud_cdc_tx_complete_cb(uint8_t itf)
