@@ -193,7 +193,7 @@ static void handle_pkt(pkt_t * pkt)
     if (!crc_ok) {
         ack = ACK_I_INVALID_CRC;
         pkt->param_len = 1;
-        memset(pkt->param, 0, sizeof(pkt->param));
+        bzero(pkt->param, sizeof(pkt->param));
     }
     else {
         switch (pkt->cmd) {
