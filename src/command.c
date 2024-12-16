@@ -19,6 +19,7 @@
 #include "fourway.h"
 #include "blheli.h"
 #include "scribble.h"
+#include "shadow_flash.h"
 
 // Put the buffer in BSS because there's not enough stack space.
 #if configSTATS_BUFFER_MAX_LENGTH < 0xFFFFU
@@ -313,6 +314,16 @@ static void run_restart(int argc, const char *argv[])
         puts("Error");
 }
 
+static void run_flash(int argc, const char *argv[])
+{
+    flash_init();
+}
+
+static void run_ihex(int argc, const char *argv[])
+{
+    flash_ihex();
+}
+
 static void run_break(int argc, const char *argv[])
 {
     onewire_break();
@@ -345,6 +356,8 @@ static const cmd_ent_t cmds [] = {
     { "setbuf", run_setbuf, "Send data to ESC buffer", 2, 2 },
     { "erase", run_erase, "Erase the ESC flash @address", 1, 1 },
     { "program", run_program, "Program the ESC flash @address using buffer", 1, 1 },
+    { "flash", run_flash, "Initialize shadow flash", 1, 1 },
+    { "ihex", run_ihex, "Dump shadown flash in Intel HEX format", 1, 1 },
     { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
     { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},

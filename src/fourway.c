@@ -73,7 +73,7 @@ static pkt_t *fsm(int c)
 {
     typedef enum { IDLE, START, COMMAND, ADDRESS_HI, ADDRESS_LO, PARAM_LEN, PARAM, CRC_HI, CRC_LO } state_t;
     static state_t curr = IDLE;
-    static uint8_t param_cnt;
+    static size_t param_cnt;
     static pkt_t pkt = {0};
     state_t next = IDLE;
 
@@ -94,7 +94,7 @@ static pkt_t *fsm(int c)
             next = curr + 1;
             break;
         case PARAM:
-            if (param_cnt == pkt.param_len)
+            if (param_cnt == param_len(&pkt))
                 next = CRC_HI;
             else
                 next = PARAM;
@@ -188,18 +188,6 @@ static void handle_pkt(pkt_t * pkt)
         puts(" CRC bad");
 
     pkt->start ^= 1; // flip the LSB to indicate a reply
-
-    // Quirk: BLHeliSuite sends a zero CRC for cmd_DeviceWrite with param_len = 256
-    if (!crc_ok &&
-        pkt->cmd == cmd_DeviceWrite &&
-        param_len(pkt) == 256 &&
-        pkt->param[256] == 0 &&
-        pkt->param[257] == 0)
-    {
-        puts("Warning: continuing despite a bad CRC because BLHeliSuite is borken");
-        putbuf(&pkt->start, pkt_size(pkt));
-        crc_ok = true;
-    }
 
     uint8_t ack = ACK_OK;
     if (!crc_ok) {

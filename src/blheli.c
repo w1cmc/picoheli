@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdlib.h>
 #include <FreeRTOS.h>
 #include <task.h>
 #include "crc16.h"
@@ -168,21 +169,26 @@ int blheli_set_buffer(const void *buf, size_t size)
     return ACK_OK;
 }
 
-int blheli_read_flash(void *rx_buf, size_t rx_size)
+int blheli_read_flash(void *buf, size_t size)
 {
-    const uint8_t tx_buf[] = { OP_READ_FLASH, (rx_size > 255 ? 0 : rx_size) };
+    const uint8_t tx_buf[] = { OP_READ_FLASH, (size > 255 ? 0 : size) };
     static const size_t tx_size = sizeof(tx_buf);
-    // A little sketchy to read 3 more bytes, but we need the CRC and error code.
-    // Since rx_buf is always the param array of a pkt_t, there is enough space.
-    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size + 3);
+    const size_t rx_size = size + 3; // need 3 more bytes for the CRC and error code.
+    uint8_t * const rx_buf = malloc(rx_size);
+
+    const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     printf("%s(%d)\n", __func__, rx_size);
     putbuf(rx_buf, n);
-    uint8_t * const end = (uint8_t *) rx_buf + n;
-    if (n == rx_size + 3 &&
-        crc16(rx_buf, rx_size + 2) == 0 &&
-        end[-1] == SUCCESS)
-        return ACK_OK;
-    return ACK_D_GENERAL_ERROR;
+
+    int ack = ACK_D_GENERAL_ERROR;
+    if (n == rx_size && crc16(rx_buf, rx_size - 1) == 0 && rx_buf[rx_size - 1] == SUCCESS)
+    {
+        memcpy(buf, rx_buf, size);
+        ack = ACK_OK;
+    }
+
+    free(rx_buf);
+    return ack;
 }
 
 int blheli_erase_flash()
