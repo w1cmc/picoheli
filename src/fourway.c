@@ -69,6 +69,16 @@ static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
     return crc;
 }
 
+static void debuggery(int c)
+{
+    static int pos;
+    printf("%02X", c);
+    if (++pos == 8)
+        putchar('\n');
+    else
+        putchar(' ');
+}
+
 static pkt_t *fsm(int c)
 {
     typedef enum { IDLE, START, COMMAND, ADDRESS_HI, ADDRESS_LO, PARAM_LEN, PARAM, CRC_HI, CRC_LO } state_t;
@@ -76,6 +86,8 @@ static pkt_t *fsm(int c)
     static size_t param_cnt;
     static pkt_t pkt = {0};
     state_t next = IDLE;
+
+    debuggery(c);
 
     switch (curr) {
         case IDLE:
