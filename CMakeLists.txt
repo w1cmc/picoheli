@@ -1,8 +1,11 @@
 # version pi!
 cmake_minimum_required(VERSION 3.14)
 
-unset(ENV{PICO_SDK_PATH})
-set(PICO_SDK_FETCH_FROM_GIT ON CACHE BOOL "Fetch the master branch of Pico SDK from github")
+if (DEFINED ENV{PICO_SDK_PATH})
+    unset(ENV{PICO_SDK_PATH})
+endif()
+set(PICO_SDK_FETCH_FROM_GIT ON CACHE BOOL "Fetch the Pico SDK from github")
+set(PICO_SDK_FETCH_FROM_GIT_TAG "2.1.0" CACHE STRING "Git tag to check out when fetching SDK")
 include(pico_sdk_import.cmake)
 
 set(PROJECT_NAME "picoheli")
