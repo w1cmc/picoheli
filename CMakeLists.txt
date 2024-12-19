@@ -54,6 +54,10 @@ target_link_libraries(
 		pico_multicore
 )
 
+set(TINYUSB_OPT_OS OPT_OS_FREERTOS)
+target_compile_definitions(tinyusb_device INTERFACE CFG_TUSB_OS_INC_PATH=${freertos_kernel_SOURCE_DIR}/include)
+target_compile_definitions(tinyusb_board INTERFACE CFG_TUSB_OS_INC_PATH=${freertos_kernel_SOURCE_DIR}/include)
+
 add_subdirectory(genusb_dir)
 
 # Select the RP2040 FreeRTOS PORT
