@@ -1,17 +1,30 @@
 # version pi!
 cmake_minimum_required(VERSION 3.14)
 
-if (DEFINED ENV{PICO_SDK_PATH})
-    unset(ENV{PICO_SDK_PATH})
-endif()
-set(PICO_SDK_FETCH_FROM_GIT ON CACHE BOOL "Fetch the Pico SDK from github")
-set(PICO_SDK_FETCH_FROM_GIT_TAG "2.1.0" CACHE STRING "Git tag to check out when fetching SDK")
-include(pico_sdk_import.cmake)
-
-set(PROJECT_NAME "picoheli")
-project(${PROJECT_NAME} C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
+endif()
+set(sdkVersion 2.1.0)
+set(toolchainVersion 13_3_Rel1)
+set(picotoolVersion 2.1.0)
+set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+if (EXISTS ${picoVscode})
+    include(${picoVscode})
+endif()
+# ====================================================================================
+set(PICO_BOARD pico CACHE STRING "Board type")
+
+# Pull in Raspberry Pi Pico SDK (must be before project)
+include(pico_sdk_import.cmake)
+
+project(picoheli C CXX ASM)
 pico_sdk_init()
 
 include(FetchContent)
