@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <FreeRTOS.h>
 #include <semphr.h>
 #include <task.h>
@@ -71,10 +72,17 @@ static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
 
 static void debuggery(int c)
 {
-    static int pos;
+    static char buf[9] = {0};
+    static char * const end = &buf[sizeof(buf) - 1];
+    static char * pos = buf;
+
     printf("%02X", c);
-    if (++pos == 8)
-        putchar('\n');
+    *pos++ = isprint(c) ? c : '.';
+    if (pos == end) {
+        putchar(' ');
+        puts(buf);
+        pos = buf;
+    }
     else
         putchar(' ');
 }
@@ -86,8 +94,6 @@ static pkt_t *fsm(int c)
     static size_t param_cnt;
     static pkt_t pkt = {0};
     state_t next = IDLE;
-
-    debuggery(c);
 
     switch (curr) {
         case IDLE:
@@ -276,13 +282,16 @@ static void handle_pkt(pkt_t * pkt)
         else
             xSemaphoreTake(txAvailMutex, pdMS_TO_TICKS(50));
     }
+    
+    tud_cdc_write_flush();
 }
 
 void tud_cdc_rx_cb(uint8_t itf)
 {
     int c;
 
-    while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
+    while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {    
+        debuggery(c);
         pkt_t * const pkt = fsm(c);
         if (pkt)
             xQueueSendToBack(pktQueueHandle, pkt, 0);

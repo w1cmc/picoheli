@@ -25,7 +25,7 @@ set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
 project(picoheli C CXX ASM)
-pico_sdk_init()
+set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Compile fully de-optimized for debug")
 
 include(FetchContent)
 FetchContent_Declare(freertos_kernel
@@ -55,10 +55,8 @@ target_link_libraries(
 )
 
 set(TINYUSB_OPT_OS OPT_OS_FREERTOS)
-target_compile_definitions(tinyusb_device INTERFACE CFG_TUSB_OS_INC_PATH=${freertos_kernel_SOURCE_DIR}/include)
-target_compile_definitions(tinyusb_board INTERFACE CFG_TUSB_OS_INC_PATH=${freertos_kernel_SOURCE_DIR}/include)
-
-add_subdirectory(genusb_dir)
+set(PICO_DEOPTIMIZED_DEBUG ON)
+pico_sdk_init()
 
 # Select the RP2040 FreeRTOS PORT
 set(FREERTOS_PORT GCC_RP2040)
@@ -68,6 +66,8 @@ FetchContent_MakeAvailable(freertos_kernel)
 if (NOT freertos_kernel_POPULATED)
 	message(SEND_ERROR "freertos_kernel is NOT POPULATED")
 endif()
+
+target_compile_definitions(tinyusb_common INTERFACE CFG_TUSB_OS_INC_PATH=${freertos_kernel_SOURCE_DIR}/include/)
 
 target_link_libraries(freertos_kernel
     PUBLIC
@@ -99,7 +99,6 @@ target_link_libraries(
         freertos_kernel
         tinyusb_device
         tinyusb_board
-        genusb
         hardware_rtc
         hardware_pio
         hardware_dma
