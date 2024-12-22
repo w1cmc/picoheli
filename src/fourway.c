@@ -8,6 +8,7 @@
 #include "putbuf.h"
 #include "onewire.h"
 #include "blheli.h"
+#include "putbuf.h"
 #include "fourway.h"
 
 #define FOURWAY_TASK_STACK_SIZE 1024
@@ -68,23 +69,6 @@ static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
     while (ptr < end)
         crc = crc16_xmodem(*ptr++, crc);
     return crc;
-}
-
-static void debuggery(int c)
-{
-    static char buf[9] = {0};
-    static char * const end = &buf[sizeof(buf) - 1];
-    static char * pos = buf;
-
-    printf("%02X", c);
-    *pos++ = isprint(c) ? c : '.';
-    if (pos == end) {
-        putchar(' ');
-        puts(buf);
-        pos = buf;
-    }
-    else
-        putchar(' ');
 }
 
 static pkt_t *fsm(int c)
@@ -291,8 +275,8 @@ void tud_cdc_rx_cb(uint8_t itf)
     int c;
 
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {    
-        debuggery(c);
         pkt_t * const pkt = fsm(c);
+        ascbuf(c, pkt != NULL);
         if (pkt)
             xQueueSendToBack(pktQueueHandle, pkt, 0);
     }

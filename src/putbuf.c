@@ -3,31 +3,29 @@
 #include <ctype.h>
 #include "putbuf.h"
 
-void putbuf(const uint8_t * const buf, size_t size)
+void ascbuf(int c, int eol)
+{
+    static char buf[18] = {0};
+    static char * const end = &buf[sizeof(buf) - 1];
+    static char * pos = buf;
+
+    printf("%02X ", c);
+    *pos++ = isprint(c) ? c : '.';
+    if (eol || (pos == end)) {
+        *pos = 0;
+        puts(buf);
+        pos = buf;
+    }
+}
+
+void putbuf(const uint8_t * buf, size_t size)
 {
     if (size == 0) {
         puts("no data received");
         return;
     }
 
-    int i;
-    for (i=0; i<size; ++i) {
-        printf("%02x", buf[i]);
-        putchar((i & 7) == 7 ? '\n' : ' ');
-    }
-    
-    if (i & 7)
-        putchar('\n');
-    
-    for(i=0; i<size; ++i) {
-        if (isprint(buf[i]))
-            putchar(buf[i]);
-        else
-            putchar('.');
-        if ((i & 31) == 31)
-            putchar('\n');
-    }
-
-    if (i & 15)
-        putchar('\n');
+    const uint8_t * const end = &buf[size];
+    while (buf < end)
+        ascbuf(*buf, ++buf == end);
 }

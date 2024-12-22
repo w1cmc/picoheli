@@ -14,11 +14,7 @@
 #include "blheli.h"
 
 #if 0
-#define DEBUG_BUFFER(buf, size) \
-    do {                        \
-        puts(__func__);         \
-        putbuf(buf, size);      \
-    } while (0)
+#define DEBUG_BUFFER(buf, size) putbuf(buf, size)
 #else
 #define DEBUG_BUFFER(buf, size)
 #endif
@@ -54,7 +50,7 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     scribble(rx_buf, rx_size);
     onewire_putc('\000');
     const int n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
-    DEBUG_BUFFER(rx_buf, n);
+    putbuf(rx_buf, n);
     if (n == 9 && strncmp(rx_buf, "471", 3) == 0 && rx_buf[8] == '0') {
         pkt->param_len = 4;
         pkt->param[0] = rx_buf[5];
