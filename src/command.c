@@ -306,11 +306,6 @@ static void run_ihex(int argc, const char *argv[])
     flash_ihex();
 }
 
-static void run_break(int argc, const char *argv[])
-{
-    onewire_break();
-}
-
 static void run_help(int argc, const char *argv[]);
 
 typedef struct {
@@ -331,6 +326,7 @@ static const cmd_ent_t cmds [] = {
     { "top", run_top, "Print task time statistics", 1, 1},
     { "ticks", run_ticks, "Print current tick count", 1, 1},
     { "freqs", run_freqs, "Print system frequencies", 1, 1},
+    { "pulse", run_pulse, "Pulse the 1-wire pin low for some ms", 2, 2},
     { "blheli", run_blheli, "Send BLHeli handshake to ESC", 1, 1},
     { "ping", run_ping, "Send keep alive to ESC", 1, 1},
     { "addr", run_addr, "Set the read/buffer address in ESC", 2, 2 },
@@ -338,11 +334,9 @@ static const cmd_ent_t cmds [] = {
     { "setbuf", run_setbuf, "Send data to ESC buffer", 2, 2 },
     { "erase", run_erase, "Erase the ESC flash @address", 1, 1 },
     { "program", run_program, "Program the ESC flash @address using buffer", 1, 1 },
-    { "flash", run_flash, "Initialize shadow flash", 1, 1 },
-    { "ihex", run_ihex, "Dump shadown flash in Intel HEX format", 1, 1 },
-    { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
-    { "pulse", run_pulse, "Pulse the 1-wire pin low for some ms", 2, 2},
+    { "flash", run_flash, "Initialize shadow flash", 1, 1 },
+    { "ihex", run_ihex, "Dump shadow flash in Intel HEX format", 1, 1 },
     { "help", run_help, "Shows this message", 1, 1},
 };
 

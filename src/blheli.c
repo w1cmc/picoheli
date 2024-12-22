@@ -42,6 +42,19 @@ enum {
 
 int blheli_DeviceInitFlash(pkt_t * pkt)
 {
+    int ack;
+    if (pkt->param_len != 1)
+        ack = ACK_I_INVALID_PARAM;
+    else if (pkt->param[0] != 0)
+        ack = ACK_I_INVALID_CHANNEL;
+    else
+        ack = blheli_reset();
+    
+    pkt->param_len = 1;
+    bzero(pkt->param, sizeof(pkt->param));
+    if (ack != ACK_OK)
+        return ack;
+
     static const char tx_buf[] = "BLHeli";
     static const size_t tx_size = sizeof(tx_buf) - 1; // minus 1 to omit the NUL terminator
     uint8_t rx_buf[16];
@@ -60,8 +73,6 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
         return ACK_OK;
     }
 
-    pkt->param_len = 1;
-    pkt->param[0] = 0;
     return ACK_D_GENERAL_ERROR;
 }
 
@@ -130,13 +141,20 @@ int blheli_DeviceWrite(pkt_t *pkt)
 
 int blheli_DeviceReset(pkt_t *pkt)
 {
+    pkt->param_len = 1;
+    bzero(pkt->param, sizeof(pkt->param));
+    return blheli_reset();
+}
+
+int blheli_reset()
+{
     static const char tx_buf[] = { 0, 0 };
     static const size_t tx_size = sizeof(tx_buf);
     char rx_buf[16] = {0};
     static const size_t rx_size = sizeof(rx_buf);
     const size_t n = onewire_xfer(tx_buf, tx_size, rx_buf, rx_size);
     DEBUG_BUFFER(rx_buf, n);
-    return n == 0 ? ACK_OK : ACK_D_GENERAL_ERROR;
+    return n == 0 ? ACK_OK : ACK_D_GENERAL_ERROR;    
 }
 
 int blheli_set_addr(const uint16_t addr)

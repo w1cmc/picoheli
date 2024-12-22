@@ -3,6 +3,7 @@
 #include "fourway.h"
 
 extern int blheli_ping();
+extern int blheli_reset();
 extern int blheli_set_addr(const uint16_t addr);
 extern int blheli_read_flash(void * rx_buf, size_t rx_size);
 extern int blheli_erase_flash();
