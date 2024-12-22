@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <FreeRTOS.h>
+#include <queue.h>
 #include "blheli.h"
 #include "ihex.h"
 #include "shadow_flash.h"

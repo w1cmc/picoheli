@@ -67,6 +67,7 @@ static inline size_t pkt_size(const fourway_pkt_t * pkt)
     return 7 + (pkt->start == 0xfe) + fourway_param_len(pkt);
 }
 
+extern QueueHandle_t fourwayQueueHandle;
 extern void fourway_init();
 
 #endif

@@ -1,14 +1,13 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <FreeRTOS.h>
-#include <semphr.h>
 #include <task.h>
 #include <queue.h>
-#include <tusb.h>
 #include "putbuf.h"
 #include "onewire.h"
 #include "blheli.h"
 #include "putbuf.h"
+#include "usb_tx.h"
 #include "fourway.h"
 
 #define FOURWAY_TASK_STACK_SIZE 1024
@@ -19,9 +18,8 @@
 #define PROTO_VER 106
 
 static const UBaseType_t pktQueueLength = 8;
-static QueueHandle_t pktQueueHandle;
+QueueHandle_t fourwayQueueHandle;
 static TaskHandle_t fourwayTaskHandle;
-static SemaphoreHandle_t txAvailMutex;
 
 static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 {
@@ -69,95 +67,6 @@ static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
     while (ptr < end)
         crc = crc16_xmodem(*ptr++, crc);
     return crc;
-}
-
-static fourway_pkt_t *fsm(int c)
-{
-    typedef enum {
-        IDLE,
-        FOURWAY_START,
-        FOURWAY_COMMAND,
-        FOURWAY_ADDRESS_HI,
-        FOURWAY_ADDRESS_LO,
-        FOURWAY_PARAM_LEN,
-        FOURWAY_PARAM,
-        FOURWAY_CRC_HI,
-        FOURWAY_CRC_LO,
-        MSP_DOLLAR,
-        MSP_M,
-        MSP_LESS,
-        MSP_SIZE,
-        MSP_COMMAND,
-        MSP_DATA,
-        MSP_CRC,
-    } state_t;
-    static state_t curr = IDLE;
-    static size_t param_cnt;
-    static fourway_pkt_t pkt = {0};
-    state_t next = IDLE;
-
-    switch (curr) {
-        case IDLE:
-            if (c == 0x2f)
-                next = FOURWAY_START;
-            break;
-        case FOURWAY_START:
-            if (0x30 <= c && c <= 0x3F)
-                next = FOURWAY_COMMAND;
-            break;
-        case FOURWAY_COMMAND:
-        case FOURWAY_ADDRESS_HI:
-        case FOURWAY_ADDRESS_LO:
-        case FOURWAY_PARAM_LEN:
-        case FOURWAY_CRC_HI:
-            next = curr + 1;
-            break;
-        case FOURWAY_PARAM:
-            if (param_cnt == fourway_param_len(&pkt))
-                next = FOURWAY_CRC_HI;
-            else
-                next = FOURWAY_PARAM;
-            break;
-        case FOURWAY_CRC_LO:
-            if (c == 0x2F)
-                next = FOURWAY_START;
-            break;
-    }
-
-    curr = next;
-    
-    switch (curr) {
-        case FOURWAY_START:
-            bzero(&pkt, sizeof(pkt));
-            pkt.start = c;
-            break;
-        case FOURWAY_COMMAND:
-            pkt.cmd = c;
-            break;
-        case FOURWAY_ADDRESS_HI:
-            pkt.addr_msb = c;
-            break;
-        case FOURWAY_ADDRESS_LO:
-            pkt.addr_lsb = c;
-            break;
-        case FOURWAY_PARAM_LEN:
-            pkt.param_len = c;
-            param_cnt = 0;
-            break;
-        case FOURWAY_PARAM:
-            pkt.param[param_cnt++] = c;
-            break;
-        case FOURWAY_CRC_HI:
-            pkt.param[param_cnt++] = c;
-            break;
-        case FOURWAY_CRC_LO:
-            pkt.param[param_cnt++] = c;
-            return &pkt;
-        default:
-            break;
-    }
-
-    return NULL;
 }
 
 static const char * cmd_label(int cmd)
@@ -274,50 +183,22 @@ static void handle_pkt(fourway_pkt_t * pkt)
     *end++ = (crc >> 8); // big-endian
     *end++ = (crc & 255);
 
-    while (pos < end) {
-        const uint32_t need = end - pos;
-        const uint32_t avail = tud_cdc_write_available();
-        const uint32_t write_size = need > avail ? avail : need;
-        if (write_size > 0)
-            pos += tud_cdc_write(pos, write_size);
-        else
-            xSemaphoreTake(txAvailMutex, pdMS_TO_TICKS(50));
-    }
-    
-    tud_cdc_write_flush();
-}
-
-void tud_cdc_rx_cb(uint8_t itf)
-{
-    int c;
-
-    while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {    
-        fourway_pkt_t * const pkt = fsm(c);
-        ascbuf(c, pkt != NULL);
-        if (pkt)
-            xQueueSendToBack(pktQueueHandle, pkt, 0);
-    }
-}
-
-void tud_cdc_tx_complete_cb(uint8_t itf)
-{
-    xSemaphoreGive(txAvailMutex);
+    usb_tx_buf(pos, end - pos);
 }
 
 static void fourway_task_func(void *param)
 {
     while (1) {
         fourway_pkt_t pkt;
-        if (xQueueReceive(pktQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
+        if (xQueueReceive(fourwayQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
             handle_pkt(&pkt);
     }
 }
 
 void fourway_init()
 {
-    pktQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));
-    txAvailMutex = xSemaphoreCreateBinary();
-    configASSERT(pktQueueHandle);
+    fourwayQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));\
+    configASSERT(fourwayQueueHandle);
     configASSERT(xTaskCreate(fourway_task_func, "4w-if", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &fourwayTaskHandle));
     configASSERT(fourwayTaskHandle);
 }

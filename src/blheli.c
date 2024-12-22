@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <FreeRTOS.h>
 #include <task.h>
+#include <queue.h>
 #include "crc16.h"
 #include "scribble.h"
 #include "putbuf.h"
