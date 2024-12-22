@@ -155,38 +155,20 @@ static void run_pull(int argc, const char *argv[])
     }
 }
 
-static int flip(int gp)
-{
-    static int up = 0;
-    if (up)
-        gpio_pull_up(ONEWIRE_PIN);
-    else
-        gpio_pull_down(ONEWIRE_PIN);
-    up = !up;
-}
-
 static void run_pulse(int argc, const char *argv[])
 {
-    const int nt = argc - 1;
-    const size_t tsz = sizeof(int) * nt;
-    int * const t = alloca(tsz);
-    int *tp = t;
+    const char * const tstr = argv[1];
+    char * end = 0;
+    const int t = tstr ? strtoul(tstr, &end, 0) : 0;
 
-    memset(t, 0, tsz);
-    for (--argc, ++argv; argc; --argc, ++argv) {
-        char * end = 0;
-        *tp++ = strtoul(*argv, &end, 0);
-        if (!**argv || *end) {
-            puts("error: expecting a number of ms");
-            return;
-        }
+    if (!t || !*tstr || !end || *end) {
+        puts("error: expecting a number of ms > 0");
+        return;
     }
 
-    for (tp = t; tp < &t[nt]; ++tp) {
-        flip(ONEWIRE_PIN);
-        vTaskDelay(pdMS_TO_TICKS(*tp));
-    }
-    flip(ONEWIRE_PIN);
+    gpio_pull_down(ONEWIRE_PIN);
+    vTaskDelay(pdMS_TO_TICKS(t));
+    gpio_pull_up(ONEWIRE_PIN);
 }
 
 static void run_ticks(int argc, const char *argv[])
@@ -360,7 +342,7 @@ static const cmd_ent_t cmds [] = {
     { "ihex", run_ihex, "Dump shadown flash in Intel HEX format", 1, 1 },
     { "break", run_break, "Send a break to the ESC", 1, 1},
     { "restart", run_restart, "Send restart command to ESC", 1, 1},
-    { "pulse", run_pulse, "Pulse the 1-wire pin for some ms", 1, 10},
+    { "pulse", run_pulse, "Pulse the 1-wire pin low for some ms", 2, 2},
     { "help", run_help, "Shows this message", 1, 1},
 };
 
