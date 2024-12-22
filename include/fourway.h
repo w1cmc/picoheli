@@ -52,19 +52,19 @@ typedef struct {
 } __attribute__((packed)) fourway_pkt_t;
 
  // 1-255 means n bytes; 0 means 256 bytes.
-static inline size_t byte_size(const uint8_t b)
+static inline size_t fourway_byte_size(const uint8_t b)
 {
     return b ? b : 256;
 }
 
-static inline size_t param_len(const fourway_pkt_t * pkt)
+static inline size_t fourway_param_len(const fourway_pkt_t * pkt)
 {
-    return byte_size(pkt->param_len);
+    return fourway_byte_size(pkt->param_len);
 }
 
 static inline size_t pkt_size(const fourway_pkt_t * pkt)
 {
-    return 7 + (pkt->start == 0xfe) + param_len(pkt);
+    return 7 + (pkt->start == 0xfe) + fourway_param_len(pkt);
 }
 
 extern void fourway_init();

@@ -113,7 +113,7 @@ static fourway_pkt_t *fsm(int c)
             next = curr + 1;
             break;
         case FOURWAY_PARAM:
-            if (param_cnt == param_len(&pkt))
+            if (param_cnt == fourway_param_len(&pkt))
                 next = FOURWAY_CRC_HI;
             else
                 next = FOURWAY_PARAM;
@@ -186,7 +186,7 @@ static const char * cmd_label(int cmd)
 
 static bool check_crc(const fourway_pkt_t * pkt)
 {
-    return !crc16_range(&pkt->start, &pkt->param[param_len(pkt) + sizeof(uint16_t)]);
+    return !crc16_range(&pkt->start, &pkt->param[fourway_param_len(pkt) + sizeof(uint16_t)]);
 }
 
 static void handle_pkt(fourway_pkt_t * pkt)
@@ -196,9 +196,9 @@ static void handle_pkt(fourway_pkt_t * pkt)
         pkt->cmd,
         cmd_label(pkt->cmd),
         pkt->addr_lsb | (pkt->addr_msb << 8),
-        param_len(pkt));
+        fourway_param_len(pkt));
     
-    if (param_len(pkt) == 1)
+    if (fourway_param_len(pkt) == 1)
         printf(" Param=%d", pkt->param[0]);
     
     if (crc_ok)
@@ -268,7 +268,7 @@ static void handle_pkt(fourway_pkt_t * pkt)
     }
 
     uint8_t * pos = &pkt->start;
-    uint8_t * end = &pkt->param[param_len(pkt)];
+    uint8_t * end = &pkt->param[fourway_param_len(pkt)];
     *end++ = ack;
     const uint16_t crc = crc16_range(pos, end);
     *end++ = (crc >> 8); // big-endian

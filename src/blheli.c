@@ -94,7 +94,7 @@ int blheli_DeviceRead(fourway_pkt_t *pkt)
     int ack = blheli_set_addr(addr);
 
     if (ack == ACK_OK) {
-        const size_t rx_size = byte_size(pkt->param[0]);
+        const size_t rx_size = fourway_byte_size(pkt->param[0]);
         ack = blheli_read_flash(pkt->param, rx_size);
         if (ack == ACK_OK)
             pkt->param_len = rx_size; // silently masks off bits 8-31.
@@ -111,7 +111,7 @@ int blheli_DeviceRead(fourway_pkt_t *pkt)
 int blheli_DeviceWrite(fourway_pkt_t *pkt)
 {
     int ack = ACK_OK;
-    const size_t size = param_len(pkt);
+    const size_t size = fourway_param_len(pkt);
     uint16_t dst = pkt->addr_msb << 8 + pkt->addr_lsb;
     const uint16_t end = dst + size;
     uint8_t *src = pkt->param;
