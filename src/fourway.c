@@ -71,69 +71,86 @@ static uint16_t crc16_range(const uint8_t * ptr, const uint8_t * const end)
     return crc;
 }
 
-static pkt_t *fsm(int c)
+static fourway_pkt_t *fsm(int c)
 {
-    typedef enum { IDLE, START, COMMAND, ADDRESS_HI, ADDRESS_LO, PARAM_LEN, PARAM, CRC_HI, CRC_LO } state_t;
+    typedef enum {
+        IDLE,
+        FOURWAY_START,
+        FOURWAY_COMMAND,
+        FOURWAY_ADDRESS_HI,
+        FOURWAY_ADDRESS_LO,
+        FOURWAY_PARAM_LEN,
+        FOURWAY_PARAM,
+        FOURWAY_CRC_HI,
+        FOURWAY_CRC_LO,
+        MSP_DOLLAR,
+        MSP_M,
+        MSP_LESS,
+        MSP_SIZE,
+        MSP_COMMAND,
+        MSP_DATA,
+        MSP_CRC,
+    } state_t;
     static state_t curr = IDLE;
     static size_t param_cnt;
-    static pkt_t pkt = {0};
+    static fourway_pkt_t pkt = {0};
     state_t next = IDLE;
 
     switch (curr) {
         case IDLE:
-            if (c == 0x2F)
-                next = START;
+            if (c == 0x2f)
+                next = FOURWAY_START;
             break;
-        case START:
+        case FOURWAY_START:
             if (0x30 <= c && c <= 0x3F)
-                next = COMMAND;
+                next = FOURWAY_COMMAND;
             break;
-        case COMMAND:
-        case ADDRESS_HI:
-        case ADDRESS_LO:
-        case PARAM_LEN:
-        case CRC_HI:
+        case FOURWAY_COMMAND:
+        case FOURWAY_ADDRESS_HI:
+        case FOURWAY_ADDRESS_LO:
+        case FOURWAY_PARAM_LEN:
+        case FOURWAY_CRC_HI:
             next = curr + 1;
             break;
-        case PARAM:
+        case FOURWAY_PARAM:
             if (param_cnt == param_len(&pkt))
-                next = CRC_HI;
+                next = FOURWAY_CRC_HI;
             else
-                next = PARAM;
+                next = FOURWAY_PARAM;
             break;
-        case CRC_LO:
+        case FOURWAY_CRC_LO:
             if (c == 0x2F)
-                next = START;
+                next = FOURWAY_START;
             break;
     }
 
     curr = next;
     
     switch (curr) {
-        case START:
+        case FOURWAY_START:
             bzero(&pkt, sizeof(pkt));
             pkt.start = c;
             break;
-        case COMMAND:
+        case FOURWAY_COMMAND:
             pkt.cmd = c;
             break;
-        case ADDRESS_HI:
+        case FOURWAY_ADDRESS_HI:
             pkt.addr_msb = c;
             break;
-        case ADDRESS_LO:
+        case FOURWAY_ADDRESS_LO:
             pkt.addr_lsb = c;
             break;
-        case PARAM_LEN:
+        case FOURWAY_PARAM_LEN:
             pkt.param_len = c;
             param_cnt = 0;
             break;
-        case PARAM:
+        case FOURWAY_PARAM:
             pkt.param[param_cnt++] = c;
             break;
-        case CRC_HI:
+        case FOURWAY_CRC_HI:
             pkt.param[param_cnt++] = c;
             break;
-        case CRC_LO:
+        case FOURWAY_CRC_LO:
             pkt.param[param_cnt++] = c;
             return &pkt;
         default:
@@ -167,12 +184,12 @@ static const char * cmd_label(int cmd)
     return labels[cmd & 15];
 }
 
-static bool check_crc(const pkt_t * pkt)
+static bool check_crc(const fourway_pkt_t * pkt)
 {
     return !crc16_range(&pkt->start, &pkt->param[param_len(pkt) + sizeof(uint16_t)]);
 }
 
-static void handle_pkt(pkt_t * pkt)
+static void handle_pkt(fourway_pkt_t * pkt)
 {
     bool crc_ok = check_crc(pkt);
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d",
@@ -275,7 +292,7 @@ void tud_cdc_rx_cb(uint8_t itf)
     int c;
 
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {    
-        pkt_t * const pkt = fsm(c);
+        fourway_pkt_t * const pkt = fsm(c);
         ascbuf(c, pkt != NULL);
         if (pkt)
             xQueueSendToBack(pktQueueHandle, pkt, 0);
@@ -290,7 +307,7 @@ void tud_cdc_tx_complete_cb(uint8_t itf)
 static void fourway_task_func(void *param)
 {
     while (1) {
-        pkt_t pkt;
+        fourway_pkt_t pkt;
         if (xQueueReceive(pktQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
             handle_pkt(&pkt);
     }
@@ -298,7 +315,7 @@ static void fourway_task_func(void *param)
 
 void fourway_init()
 {
-    pktQueueHandle = xQueueCreate(pktQueueLength, sizeof(pkt_t));
+    pktQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));
     txAvailMutex = xSemaphoreCreateBinary();
     configASSERT(pktQueueHandle);
     configASSERT(xTaskCreate(fourway_task_func, "4w-if", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &fourwayTaskHandle));

@@ -40,7 +40,7 @@ enum {
     OP_KEEP_ALIVE = 253,
 };
 
-int blheli_DeviceInitFlash(pkt_t * pkt)
+int blheli_DeviceInitFlash(fourway_pkt_t * pkt)
 {
     int ack;
     if (pkt->param_len != 1)
@@ -76,7 +76,7 @@ int blheli_DeviceInitFlash(pkt_t * pkt)
     return ACK_D_GENERAL_ERROR;
 }
 
-int blheli_DevicePageErase(pkt_t *pkt)
+int blheli_DevicePageErase(fourway_pkt_t *pkt)
 {
     const uint16_t page = pkt->param[0];
     const uint16_t addr = page << 9; // 512 byte pages
@@ -88,7 +88,7 @@ int blheli_DevicePageErase(pkt_t *pkt)
     return ack;
 }
 
-int blheli_DeviceRead(pkt_t *pkt)
+int blheli_DeviceRead(fourway_pkt_t *pkt)
 {
     const uint16_t addr = pkt->addr_msb << 8 + pkt->addr_lsb;
     int ack = blheli_set_addr(addr);
@@ -108,7 +108,7 @@ int blheli_DeviceRead(pkt_t *pkt)
     return ack;
 }
 
-int blheli_DeviceWrite(pkt_t *pkt)
+int blheli_DeviceWrite(fourway_pkt_t *pkt)
 {
     int ack = ACK_OK;
     const size_t size = param_len(pkt);
@@ -139,7 +139,7 @@ int blheli_DeviceWrite(pkt_t *pkt)
     return ack;
 }
 
-int blheli_DeviceReset(pkt_t *pkt)
+int blheli_DeviceReset(fourway_pkt_t *pkt)
 {
     pkt->param_len = 1;
     bzero(pkt->param, sizeof(pkt->param));

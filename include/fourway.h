@@ -49,7 +49,7 @@ typedef struct {
     uint8_t addr_lsb;
     uint8_t param_len;
     uint8_t param[267]; // param + ack + crc
-} __attribute__((packed)) pkt_t;
+} __attribute__((packed)) fourway_pkt_t;
 
  // 1-255 means n bytes; 0 means 256 bytes.
 static inline size_t byte_size(const uint8_t b)
@@ -57,12 +57,12 @@ static inline size_t byte_size(const uint8_t b)
     return b ? b : 256;
 }
 
-static inline size_t param_len(const pkt_t * pkt)
+static inline size_t param_len(const fourway_pkt_t * pkt)
 {
     return byte_size(pkt->param_len);
 }
 
-static inline size_t pkt_size(const pkt_t * pkt)
+static inline size_t pkt_size(const fourway_pkt_t * pkt)
 {
     return 7 + (pkt->start == 0xfe) + param_len(pkt);
 }

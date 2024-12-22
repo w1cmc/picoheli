@@ -195,7 +195,7 @@ static void run_onewire(const char * tx_buf, uint tx_size)
 
 static void run_blheli(int argc, const char *argv[])
 {
-    static pkt_t pkt = {
+    static fourway_pkt_t pkt = {
         .start = 0x2f,
         .cmd = cmd_DeviceInitFlash,
         .param_len = 1,
