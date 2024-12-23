@@ -103,7 +103,11 @@ target_link_libraries(
         hardware_pio
         hardware_dma
         pico_stdlib
+        pico_unique_id
 )
+
+string(TIMESTAMP BUILD_INFO "%b %d %Y%H:%M:%S")
+target_compile_definitions(picoheli PRIVATE BUILD_INFO="${BUILD_INFO}")
 
 add_compile_definitions(USE_PRINTF)
 pico_enable_stdio_uart(picoheli 1)

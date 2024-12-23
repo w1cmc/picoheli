@@ -5,3 +5,5 @@ typedef struct {
     uint8_t cmd;
     uint8_t data[256]; // data + crc
 } __attribute__((packed)) msp_pkt_t;
+
+extern void msp_handle_pkt(msp_pkt_t * pkt);

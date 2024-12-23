@@ -7,11 +7,12 @@
 #include "msp.h"
 #include "usb_rx.h"
 
-#define FOURWAY_TASK_STACK_SIZE 1024
+#define USB_RX_TASK_STACK_SIZE 1024
 
 static const UBaseType_t pktQueueLength = 8;
-QueueSetHandle_t xQueueSet;
-QueueHandle_t fourwayQueueHandle;
+static QueueSetHandle_t xQueueSet;
+static QueueHandle_t fourwayQueueHandle;
+static QueueHandle_t mspQueueHandle;
 static TaskHandle_t usbRxTaskHandle;
 
 static int fsm(int c)
@@ -147,6 +148,7 @@ static int fsm(int c)
         case MSP_DATA:
         case MSP_CRC:
             pkt.msp.data[param_cnt++] = c;
+            xQueueSendToBack(mspQueueHandle, &pkt.msp, 0);
             break;
         default:
             break;
@@ -173,17 +175,23 @@ static void usb_rx_task_func(void *param)
             if (xQueueReceive(fourwayQueueHandle, &pkt, 0) == pdPASS)
                 fourway_handle_pkt(&pkt);
         }
+        else if (xActivatedMember == mspQueueHandle) {
+            msp_pkt_t pkt;
+            if (xQueueReceive(mspQueueHandle, &pkt, 0) == pdPASS)
+                msp_handle_pkt(&pkt);
+        }
     }
-
-    vTaskDelete(NULL); /* unreachable */
 }
 
 void usb_rx_init()
 {
-    xQueueSet = xQueueCreateSet(10); // 10 is the maximum number of items across all queues
+    xQueueSet = xQueueCreateSet(2 * pktQueueLength);
     fourwayQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));
     configASSERT(fourwayQueueHandle);
     xQueueAddToSet(fourwayQueueHandle, xQueueSet);
-    configASSERT(xTaskCreate(usb_rx_task_func, "USB rx", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &usbRxTaskHandle));
+    mspQueueHandle = xQueueCreate(pktQueueLength, sizeof(msp_pkt_t));
+    configASSERT(mspQueueHandle);
+    xQueueAddToSet(mspQueueHandle, xQueueSet);
+    configASSERT(xTaskCreate(usb_rx_task_func, "USB rx", USB_RX_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &usbRxTaskHandle));
     configASSERT(usbRxTaskHandle);
 }
