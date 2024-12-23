@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <FreeRTOS.h>
-#include <task.h>
-#include <queue.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "putbuf.h"
 #include "onewire.h"
 #include "blheli.h"
@@ -11,16 +10,11 @@
 #include "usb_tx.h"
 #include "fourway.h"
 
-#define FOURWAY_TASK_STACK_SIZE 1024
 #define INTERFACE_VERSION 0xC800U
 #define IF_VER_HI ((INTERFACE_VERSION) >> 8)
 #define IF_VER_LO ((INTERFACE_VERSION) & 255)
 
 #define PROTO_VER 106
-
-static const UBaseType_t pktQueueLength = 8;
-QueueHandle_t fourwayQueueHandle;
-static TaskHandle_t fourwayTaskHandle;
 
 static uint16_t crc16_xmodem(const uint8_t data, uint16_t crc)
 {
@@ -99,7 +93,7 @@ static bool check_crc(const fourway_pkt_t * pkt)
     return !crc16_range(&pkt->start, &pkt->param[fourway_param_len(pkt) + sizeof(uint16_t)]);
 }
 
-static void handle_pkt(fourway_pkt_t * pkt)
+void fourway_handle_pkt(fourway_pkt_t * pkt)
 {
     bool crc_ok = check_crc(pkt);
     printf("Cmd=%02X (%s) Addr=%04X Param_len=%d",
@@ -185,21 +179,4 @@ static void handle_pkt(fourway_pkt_t * pkt)
     *end++ = (crc & 255);
 
     usb_tx_buf(pos, end - pos);
-}
-
-static void fourway_task_func(void *param)
-{
-    while (1) {
-        fourway_pkt_t pkt;
-        if (xQueueReceive(fourwayQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
-            handle_pkt(&pkt);
-    }
-}
-
-void fourway_init()
-{
-    fourwayQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));\
-    configASSERT(fourwayQueueHandle);
-    configASSERT(xTaskCreate(fourway_task_func, "4w-if", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &fourwayTaskHandle));
-    configASSERT(fourwayTaskHandle);
 }

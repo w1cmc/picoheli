@@ -12,8 +12,8 @@
 #include <tusb.h>
 // All the rest
 #include "onewire.h"
-#include "fourway.h"
 #include "usb_tx.h"
+#include "usb_rx.h"
 #include "stdio_cli.h"
 #ifndef PICO_STDIO_UART
 #include "stdio_usb_glue.h"
@@ -51,9 +51,7 @@ static void tud_task_func(void *param)
 #endif
 
     while (1)
-    {
         tud_task();
-    }
 
     vTaskDelete(NULL);
 }
@@ -61,7 +59,7 @@ static void tud_task_func(void *param)
 int main()
 {
     onewire_init();
-    fourway_init();
+    usb_rx_init();
     usb_tx_init();
 
     configASSERT(xTaskCreate(blinky_task_func, "blinky", BLINKY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &blinky_task_handle));

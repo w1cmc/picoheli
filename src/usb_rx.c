@@ -1,8 +1,17 @@
 
+#include <FreeRTOS.h>
+#include <task.h>
+#include <queue.h>
 #include <tusb.h>
 #include "fourway.h"
 #include "msp.h"
 #include "usb_rx.h"
+
+#define FOURWAY_TASK_STACK_SIZE 1024
+
+static const UBaseType_t pktQueueLength = 8;
+QueueHandle_t fourwayQueueHandle;
+static TaskHandle_t usbRxTaskHandle;
 
 static int fsm(int c)
 {
@@ -117,6 +126,27 @@ static int fsm(int c)
             pkt.fourway.param[param_cnt++] = c;
             xQueueSendToBack(fourwayQueueHandle, &pkt.fourway, 0);
             return 1;
+        case MSP_DOLLAR:
+            bzero(&pkt, sizeof(pkt));
+            pkt.msp.preamble[0] = c;
+            break;
+        case MSP_M:
+            pkt.msp.preamble[1] = c;
+            break;
+        case MSP_LESS:
+            pkt.msp.direction = c;
+            break;
+        case MSP_SIZE:
+            pkt.msp.size = c;
+            param_cnt = 0;
+            break;
+        case MSP_COMMAND:
+            pkt.msp.cmd = c;
+            break;
+        case MSP_DATA:
+        case MSP_CRC:
+            pkt.msp.data[param_cnt++] = c;
+            break;
         default:
             break;
     }
@@ -131,4 +161,21 @@ void tud_cdc_rx_cb(uint8_t itf)
     while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
         fsm(c);
     }
+}
+
+static void usb_rx_task_func(void *param)
+{
+    while (1) {
+        fourway_pkt_t pkt;
+        if (xQueueReceive(fourwayQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
+            fourway_handle_pkt(&pkt);
+    }
+}
+
+void usb_rx_init()
+{
+    fourwayQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));
+    configASSERT(fourwayQueueHandle);
+    configASSERT(xTaskCreate(usb_rx_task_func, "USB rx", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &usbRxTaskHandle));
+    configASSERT(usbRxTaskHandle);
 }
