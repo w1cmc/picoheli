@@ -1,0 +1,865 @@
+(insert (pp-to-string (mapcar (lambda (x) (format "%X" x)) (string-to-list "BLHeli"))))
+("42" "4C" "48" "65" "6C" "69")
+
+(string-to-list "BLHeli\364\175")
+
+(/ #x42 #x28)
+
+#x42 #x4c #x48
+
+(dolist (i '(#x42 #x4C #x48 #x65 #x6C #x69)) (insert i))
+
+(dolist (i '(#x34 #x37 #x31 #x64 #xE8 #xB2 #x06 #x01 #x30)) (insert i))
+471dè²0
+
+;; at startup, "Check if the input signal is high for more than 15ms"
+;; if so, jump to bootloader
+(/ #x383 100e-6)
+
+(string-to-list "BLheli")
+
+(defconst crc-16-lut [#x0000 #xc0c1 #xc181 #x0140 #xc301 #x03c0 #x0280 #xc241 
+							 #xc601 #x06c0 #x0780 #xc741 #x0500 #xc5c1 #xc481 #x0440 
+							 #xcc01 #x0cc0 #x0d80 #xcd41 #x0f00 #xcfc1 #xce81 #x0e40 
+							 #x0a00 #xcac1 #xcb81 #x0b40 #xc901 #x09c0 #x0880 #xc841 
+							 #xd801 #x18c0 #x1980 #xd941 #x1b00 #xdbc1 #xda81 #x1a40 
+							 #x1e00 #xdec1 #xdf81 #x1f40 #xdd01 #x1dc0 #x1c80 #xdc41 
+							 #x1400 #xd4c1 #xd581 #x1540 #xd701 #x17c0 #x1680 #xd641 
+							 #xd201 #x12c0 #x1380 #xd341 #x1100 #xd1c1 #xd081 #x1040 
+							 #xf001 #x30c0 #x3180 #xf141 #x3300 #xf3c1 #xf281 #x3240 
+							 #x3600 #xf6c1 #xf781 #x3740 #xf501 #x35c0 #x3480 #xf441 
+							 #x3c00 #xfcc1 #xfd81 #x3d40 #xff01 #x3fc0 #x3e80 #xfe41 
+							 #xfa01 #x3ac0 #x3b80 #xfb41 #x3900 #xf9c1 #xf881 #x3840 
+							 #x2800 #xe8c1 #xe981 #x2940 #xeb01 #x2bc0 #x2a80 #xea41 
+							 #xee01 #x2ec0 #x2f80 #xef41 #x2d00 #xedc1 #xec81 #x2c40 
+							 #xe401 #x24c0 #x2580 #xe541 #x2700 #xe7c1 #xe681 #x2640 
+							 #x2200 #xe2c1 #xe381 #x2340 #xe101 #x21c0 #x2080 #xe041 
+							 #xa001 #x60c0 #x6180 #xa141 #x6300 #xa3c1 #xa281 #x6240 
+							 #x6600 #xa6c1 #xa781 #x6740 #xa501 #x65c0 #x6480 #xa441 
+							 #x6c00 #xacc1 #xad81 #x6d40 #xaf01 #x6fc0 #x6e80 #xae41 
+							 #xaa01 #x6ac0 #x6b80 #xab41 #x6900 #xa9c1 #xa881 #x6840 
+							 #x7800 #xb8c1 #xb981 #x7940 #xbb01 #x7bc0 #x7a80 #xba41 
+							 #xbe01 #x7ec0 #x7f80 #xbf41 #x7d00 #xbdc1 #xbc81 #x7c40 
+							 #xb401 #x74c0 #x7580 #xb541 #x7700 #xb7c1 #xb681 #x7640 
+							 #x7200 #xb2c1 #xb381 #x7340 #xb101 #x71c0 #x7080 #xb041 
+							 #x5000 #x90c1 #x9181 #x5140 #x9301 #x53c0 #x5280 #x9241 
+							 #x9601 #x56c0 #x5780 #x9741 #x5500 #x95c1 #x9481 #x5440 
+							 #x9c01 #x5cc0 #x5d80 #x9d41 #x5f00 #x9fc1 #x9e81 #x5e40 
+							 #x5a00 #x9ac1 #x9b81 #x5b40 #x9901 #x59c0 #x5880 #x9841 
+							 #x8801 #x48c0 #x4980 #x8941 #x4b00 #x8bc1 #x8a81 #x4a40 
+							 #x4e00 #x8ec1 #x8f81 #x4f40 #x8d01 #x4dc0 #x4c80 #x8c41 
+							 #x4400 #x84c1 #x8581 #x4540 #x8701 #x47c0 #x4680 #x8641 
+							 #x8201 #x42c0 #x4380 #x8341 #x4100 #x81c1 #x8081 #x4040])
+
+(defun crc-16 (x)
+  (let ((crc 0))
+	(dolist (i x crc)
+	  (setq crc
+			(logxor (lsh crc -8)
+					(aref crc-16-lut
+						  (logand #xff (logxor crc i))))))))
+
+;; tests
+(crc-16 (string-to-list "BLHeli")) ; #x7df4
+(crc-16 (string-to-list "Hello, world")) ; #x8bf8
+(crc-16 '(#xfd #x00)) ; #x9040
+(crc-16 '(0 0))
+
+file(GLOB_RECURSE FREERTOS_GLUE_SRC_FILES "freertos_glue_dir/src/*.c")
+add_library(
+    freertos_glue
+    STATIC
+        ${FREERTOS_GLUE_SRC_FILES}
+)
+
+target_include_directories(
+    freertos_glue
+    INTERFACE
+        freertos_glue_dir/include
+)
+
+
+COM13: FTDI null modem
+COM16: Pico Debug UART
+COM19: Pico USB
+
+EFM8BB21F16G-B-QFN20
+
+make WINE="" WINE_BIN="" KEIL_PATH="C:/Keil_v5/C51/BIN" clean
+make WINE="" WINE_BIN="" KEIL_PATH="C:/Keil_v5/C51/BIN" VARIANT=A MCU=H FETON_DELAY=30
+# Below for Bluejay
+make KEIL_PATH=C:/Keil_v5/C51/BIN AX51=C:/Keil_v5/C51/BIN/AX51.exe LX51=C:/Keil_v5/C51/BIN/LX51.exe OX51=C:/Keil_v5/C51/BIN/Ohx51.exe LAYOUT=A MCU=H DEADTIME=30 PWM=24
+
+deviceCount = 1
+device (EC30000311A) {
+  adapterLabel = USB Debug Adapter
+  SerialNo = EC30000311A
+  targetInterface = c2
+  Name = EFM8BB21F16G-QFN20
+  Type = MCU
+  Family = 8051
+  BoardID = 
+  BoardCount = 0
+  HardwareID = 0x32
+  DerivativeID = 0x3
+  HardwareRev = 0x4
+  DerivativeRev = 0x17
+  Unsupported = 0
+  Indeterminate = 0
+  Connected = 0
+  Locked = 0
+  AdapterType = EC3
+}
+
+
+A.inc:119:SIGNATURE_001                 EQU     0E8h            ; Device signature
+A.inc:123:SIGNATURE_002                 EQU     0B2h
+BLHeliBootLoad.inc:12:BOOT_VERSION                      EQU     6               ; Version 6 (must be not changed)
+BLHeliBootLoad.inc:13:BOOT_PAGES                        EQU     1               ; Number of flash segments for bootloader
+
+	; Main commandloop
+	; 0=Run/restart 
+	; 1=Program flash, 2=Erase flash, 3=Read flash
+	; 0xFF=Set address, 0xFE=Set buffer, 0xFD=Keep alive 
+
+139       main:mov	Paral, #SUCCESS
+00001c82:   MOV     R2, #30H
+140       mai1:acall putc
+00001c84:   ACALL   1D6EH
+141       	mov	Crcl, #0				; Reset CRC
+00001c86:   MOV     22H, #00H
+142       	mov	Crch, #0
+00001c89:   MOV     23H, #00H
+143       	acall getw				; Get command
+00001c8c:   ACALL   1D8DH
+144       	mov	A, Paral
+00001c8e:   MOV     A, R2
+145       	mov	Cmdl, A
+00001c8f:   MOV     R4, A
+146       	mov	A, Parah
+00001c90:   MOV     A, R3
+147       	mov	Cmdh, A
+00001c91:   MOV     R5, A
+148       	clr	C
+00001c92:   CLR     C
+149       	mov	A, Cmdh
+00001c93:   MOV     A, R5
+150       	subb	A, #0FEh
+00001c94:   SUBB    A, #0FEH
+
+"getw" is big-endian: the first byte received goes to Parah, the second byte to Paral
+
+SUCCESS				EQU 	030h
+ERRORVERIFY			EQU 	0C0h
+ERRORCOMMAND			EQU 	0C1h
+ERRORCRC				EQU 	0C2h
+ERRORPROG				EQU 	0C5h
+
+#xfd
+
+\375\000
+
+PowerShell add directory to PATH: ${env:PATH} += ';' + 'C:\Users\coldw\AppData\Roaming\nvm'
+nvm install 18.20.5
+nvm use 18.20.5
+npm install --global yarn
+
+PowerShell recursive delete: Remove-Item -Recurse -Force some_dir
+
+        {
+            "name": "Launch Chrome",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceRoot}/public",
+            "sourceMapPathOverrides": {
+              "webpack:///./src/*": "${workspaceRoot}/src/*"
+            }
+        },
+
+getApiVersion sends
+
+
+
+Msp.getApiVersion (mapcar #'char-to-string '(#x24 #x4D #x3C #x00 #x01 #x01))
+FourWay.getInfo (mapcar #'char-to-string '(#x2F #x37 #x00 #x00 #x01 #x00 #xA8 #x00))
+ which is cmd_DeviceInitFlash
+
+
+20006
+
+shows Pico4wayv64.0.11.6
+
+Sketch uses 444 bytes (1%) of program storage space. Maximum is 30720 bytes.
+Global variables use 9 bytes (0%) of dynamic memory, leaving 2039 bytes for local variables. Maximum is 2048 bytes.
+"C:\Users\coldw\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino17/bin/avrdude" "-CC:\Users\coldw\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino17/etc/avrdude.conf" -v -V -patmega328p -carduino "-PCOM10" -b115200 -D "-Uflash:w:C:\Users\coldw\AppData\Local\Temp\arduino\sketches\E49D4FFF787FE460846F36B7372420CC/sketch_dec1a.ino.hex:i"
+
+avrdude: Version 6.3-20190619
+         Copyright (c) 2000-2005 Brian Dean, http://www.bdmicro.com/
+         Copyright (c) 2007-2014 Joerg Wunsch
+
+         System wide configuration file is "C:\Users\coldw\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino17/etc/avrdude.conf"
+
+         Using Port                    : COM10
+         Using Programmer              : arduino
+         Overriding Baud Rate          : 115200
+         AVR Part                      : ATmega328P
+         Chip Erase delay              : 9000 us
+         PAGEL                         : PD7
+         BS2                           : PC2
+         RESET disposition             : dedicated
+         RETRY pulse                   : SCK
+         serial program mode           : yes
+         parallel program mode         : yes
+         Timeout                       : 200
+         StabDelay                     : 100
+         CmdexeDelay                   : 25
+         SyncLoops                     : 32
+         ByteDelay                     : 0
+         PollIndex                     : 3
+
+PollValue                     : 0x53
+         Memory Detail                 :
+
+                                  Block Poll               Page                       Polled
+           Memory Type Mode Delay Size  Indx Paged  Size   Size #Pages MinW  MaxW   ReadBack
+           ----------- ---- ----- ----- ---- ------ ------ ---- ------ ----- ----- ---------
+           eeprom        65    20     4    0 no       1024    4      0  3600  3600 0xff 0xff
+           flash         65     6   128    0 yes     32768  128    256  4500  4500 0xff 0xff
+           lfuse          0     0     0    0 no          1    0      0  4500  4500 0x00 0x00
+           hfuse          0     0     0    0 no          1    0      0  4500  4500 0x00 0x00
+           efuse          0     0     0    0 no          1    0      0  4500  4500 0x00 0x00
+           lock           0     0     0    0 no          1    0      0  4500  4500 0x00 0x00
+           calibration    0     0     0    0 no          1    0      0     0     0 0x00 0x00
+           signature      0     0     0    0 no          3    0      0     0     0 0x00 0x00
+
+         Programmer Type : Arduino
+         Description     : Arduino
+         Hardware Version: 3
+         Firmware Version: 4.4
+         Vtarget         : 0.3 V
+         Varef           : 0.3 V
+         Oscillator      : 28.800 kHz
+         SCK period      : 3.3 us
+
+avrdude: AVR device initialized and ready to accept instructions
+
+Reading | ################################################## | 100% 0.00s
+
+avrdude: Device signature = 0x1e950f (probably m328p)
+avrdude: reading input file "C:\Users\coldw\AppData\Local\Temp\arduino\sketches\E49D4FFF787FE460846F36B7372420CC/sketch_dec1a.ino.hex"
+avrdude: writing flash (444 bytes):
+
+Writing | ################################################## | 100% 0.08s
+
+avrdude: 444 bytes of flash written
+
+avrdude done.  Thank you.
+
+C:\Users\coldw\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino17\bin\avrdude -CC:\Users\coldw\AppData\Local\Arduino15\packages\arduino\tools\avrdude\6.3.0-arduino17\etc\avrdude.conf -v -V -patmega328p -carduino -PCOM10 -b115200 -D -Uflash:w:"C:\Program Files\BLHeliSuite\Interfaces\Arduino4w-if\4wArduino_Nano__16_PD3PD2v20006.hex:i"
+
+sniffed 4way interface on Amazon Nano:
+
+comes up and identifies as 4wANm328P16v20.0.0.6
+
+cmd_ProtocolGetVersion	2e 31 0000 01 6c 00 4f25
+cmd_InterfaceGetName	2e 32 0000 0b 34 77 41 4e 6d 33 32 38 50 31 36 00 176d
+cmd_InterfaceGetVersion	2e 33 0000 02 c8 06 00 acee
+cmd_InterfaceSetMode	2e 3f 0000 01 00 00 81c1
+cmd_InterfaceTestAlive	2e 30 0000 01 00 00 44c2
+cmd_DeviceInitFlash	2e 37 0000 04 b2 e8 64 01 00 5cff
+cmd_DeviceRead		2e 3a 1a00 70 10 07 21 ff ff ff ff ff ff 09 ff 01 ff 55 aa 01 ff ff ff ff ff 03 ff ff ff 25 d0 28 50 04 ff 02 ff 7a ff 07 01 ff ff 00 00 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 23 41 5f 48 5f 33 30 23 20 20 20 20 20 20 20 20 23 42 4c 48 45 4c 49 24 45 46 4d 38 42 32 31 23 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 00 8205
+cmd_InterfaceExit	2e 34 0000 01 00 00 4263
+
+(dolist (i '(#x34 #x77 #x41 #x4e #x6d #x33 #x32 #x38 #x50 #x31 #x36)) (insert i))
+4wANm328P16
+
+
+25 mA @ 2.2V forward
+
+(/ 1.1 0.025)
+(/ (- 5 2.2) 0.025)
+
+CLI> addr 0x1a50
+30
+CLI> read 16
+23 42 4c 48 45 4c 49 24 45 46 4d 38 42 32 31 23 85 69 30
+(dolist (i '(#x23 #x42 #x4c #x48 #x45 #x4c #x49 #x24 #x45 #x46 #x4d #x38 #x42 #x32 #x31 #x23 #x85 #x69 #x30))
+	(insert i))
+#BLHELI$EFM8B21#�i0
+	
+CLI> addr 0x1a40
+30
+CLI> read 16
+23 41 5f 48 5f 33 30 23 20 20 20 20 20 20 20 20 78 ff 30
+(dolist (i '(#x23 #x41 #x5f #x48 #x5f #x33 #x30 #x23 #x20 #x20 #x20 #x20 #x20 #x20 #x20 #x20 #x78 #xff #x30))
+	(insert i))
+#A_H_30#        x�0
+
+;; This is what comes back from the "BLHeli" 
+(dolist (i '(#x34 #x37 #x31 #x64 #xe8 #xb2 #x06 #x01 #x30)) (insert i))
+471dè²0
+
+struct {
+       char msg[4];
+       uint8_t sig[2]; { 0xe8 0xb2 }
+       uint8_t ver;
+       uint8_t pages;
+       } __attribute__((packed))
+
+
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=32 (Interface Get Name) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=33 (Interface Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3F (Interface Set Mode) Addr=0000 Param_len=1 Param=1 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=37 (Device Init Flash) Addr=0000 Param_len=1 Param=0 CRC OK
+blheli_DeviceInitFlash
+34 37 31 64 e8 b2 06 01
+30
+Cmd=34 (Interface Exit) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=32 (Interface Get Name) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=33 (Interface Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3F (Interface Set Mode) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=34 (Interface Exit) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=32 (Interface Get Name) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=33 (Interface Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3F (Interface Set Mode) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=34 (Interface Exit) Addr=0000 Param_len=1 Param=0 CRC OK
+
+(mapcar (lambda (x) (insert (number-to-string x) " ")) '(#x2f #x31 #x00 #x00 #x01 #x00 #x65 #x85))
+47 49 0 0 1 0 101 133
+
+This using the Arduino Nano 4w-if:
+
+Sent   8 Command: cmd_ProtocolGetVersion addr=0x0000 param_len=1 CRC=OK
+Error reading from serial port
+Sent   8 Command: cmd_ProtocolGetVersion addr=0x0000 param_len=1 CRC=OK
+Recv   9 Reply:   cmd_ProtocolGetVersion addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+6c
+Sent   8 Command: cmd_InterfaceGetName addr=0x0000 param_len=1 CRC=OK
+Recv  19 Reply:   cmd_InterfaceGetName addr=0x0000 param_len=11 CRC=OK ack=ACK_OK
+34 77 41 4e 6d 33 32 38
+50 31 36
+Sent   8 Command: cmd_InterfaceGetVersion addr=0x0000 param_len=1 CRC=OK
+Recv  10 Reply:   cmd_InterfaceGetVersion addr=0x0000 param_len=2 CRC=OK ack=ACK_OK
+c8 06
+Sent   8 Command: cmd_InterfaceSetMode addr=0x0000 param_len=1 CRC=OK
+01
+Recv   9 Reply:   cmd_InterfaceSetMode addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+Sent   8 Command: cmd_InterfaceTestAlive addr=0x0000 param_len=1 CRC=OK
+Recv   9 Reply:   cmd_InterfaceTestAlive addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+Sent   8 Command: cmd_DeviceReset addr=0x0000 param_len=1 CRC=OK
+Recv   9 Reply:   cmd_DeviceReset addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+
+Sent   8 Command: cmd_DeviceInitFlash addr=0x0000 param_len=1 CRC=OK
+Recv  12 Reply:   cmd_DeviceInitFlash addr=0x0000 param_len=4 CRC=OK ack=ACK_OK
+b2 e8 64 01
+
+Note: blheli_DeviceInitFlash
+34 37 31 64 e8 b2 06 01
+30
+OK
+
+
+Sent   8 Command: cmd_DeviceRead addr=0x1a00 param_len=1 CRC=OK
+46
+Recv  78 Reply:   cmd_DeviceRead addr=0x1a00 param_len=70 CRC=OK ack=ACK_OK
+00 10 cc ff 33 01 01 19
+ff 09 18 01 ff 55 aa ff
+ff ff ff ff ff 04 ff ff
+ff ff ff 28 50 04 ff 02
+ff ff ff 07 ff ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33
+Sent   8 Command: cmd_DeviceReset addr=0x0000 param_len=1 CRC=OK
+Recv   9 Reply:   cmd_DeviceReset addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+Sent   8 Command: cmd_InterfaceExit addr=0x0000 param_len=1 CRC=OK
+Recv   9 Reply:   cmd_InterfaceExit addr=0x0000 param_len=1 CRC=OK ack=ACK_OK
+
+C:\Users\coldw\source\repos\fourway\x64\Debug\fourway.exe (process 25664) exited with code 0 (0x0).
+To automatically close the console when debugging stops, enable Tools->Options->Debugging->Automatically close the console when debugging stops.
+
+Transcript of successful BLHeliSuite connection!
+
+CLI> restart
+blheli_DeviceReset
+no data received
+OK
+CLI> Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=32 (Interface Get Name) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=33 (Interface Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3F (Interface Set Mode) Addr=0000 Param_len=1 Param=1 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=37 (Device Init Flash) Addr=0000 Param_len=1 Param=0 CRC OK
+blheli_DeviceInitFlash
+34 37 31 64 e8 b2 06 01
+30
+Cmd=3A (Device Read) Addr=1A00 Param_len=1 Param=112 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+00 10 cc ff 33 01 01 19
+ff 09 18 01 ff 55 aa ff
+ff ff ff ff ff 04 ff ff
+ff ff ff 28 50 04 ff 02
+ff ff ff 07 ff ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33 30 23
+20 20 20 20 20 20 20 20
+23 42 4c 48 45 4c 49 24
+45 46 4d 38 42 32 31 23
+42 6c 75 65 6a 61 79 20
+20 20 20 20 20 20 20 20
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=34 (Interface Exit) Addr=0000 Param_len=1 Param=0 CRC OK
+
+Transcript of BLHeliSuite flash
+
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=32 (Interface Get Name) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=33 (Interface Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3F (Interface Set Mode) Addr=0000 Param_len=1 Param=1 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=31 (Protocol Get Version) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=37 (Device Init Flash) Addr=0000 Param_len=1 Param=0 CRC OK
+blheli_DeviceInitFlash
+34 37 31 64 e8 b2 06 01
+30
+Cmd=3A (Device Read) Addr=1A00 Param_len=1 Param=112 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+10 07 21 ff ff ff ff ff
+ff 09 ff 01 ff 55 aa 01
+ff ff ff ff ff 03 ff ff
+ff 25 d0 28 50 04 ff 02
+ff 7a ff 07 01 ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33 30 23
+20 20 20 20 20 20 20 20
+23 42 4c 48 45 4c 49 24
+45 46 4d 38 42 32 31 23
+20 20 20 20 20 20 20 20
+20 20 20 20 20 20 20 20
+18 42 30
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3A (Device Read) Addr=1A00 Param_len=1 Param=112 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+10 07 21 ff ff ff ff ff
+ff 09 ff 01 ff 55 aa 01
+ff ff ff ff ff 03 ff ff
+ff 25 d0 28 50 04 ff 02
+ff 7a ff 07 01 ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33 30 23
+20 20 20 20 20 20 20 20
+23 42 4c 48 45 4c 49 24
+45 46 4d 38 42 32 31 23
+20 20 20 20 20 20 20 20
+20 20 20 20 20 20 20 20
+18 42 30
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=3A (Device Read) Addr=1A00 Param_len=1 Param=112 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+10 07 21 ff ff ff ff ff
+ff 09 ff 01 ff 55 aa 01
+ff ff ff ff ff 03 ff ff
+ff 25 d0 28 50 04 ff 02
+ff 7a ff 07 01 ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33 30 23
+20 20 20 20 20 20 20 20
+23 42 4c 48 45 4c 49 24
+45 46 4d 38 42 32 31 23
+20 20 20 20 20 20 20 20
+20 20 20 20 20 20 20 20
+18 42 30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=13 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=3B (Device Write) Addr=1A00 Param_len=112 Param=16 CRC OK
+blheli_set_addr
+30
+blheli_set_buffer
+30
+blheli_program_flash
+30
+Cmd=3A (Device Read) Addr=1A00 Param_len=1 Param=112 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+10 07 21 ff ff ff ff ff
+ff 09 ff 01 ff 55 aa 01
+ff ff ff ff ff 03 ff ff
+ff 25 d0 28 50 04 ff 02
+ff 7a ff 07 01 ff ff 00
+00 ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+23 41 5f 48 5f 33 30 23
+20 20 20 20 20 20 20 20
+23 42 4c 48 45 4c 49 24
+45 46 4d 38 42 32 31 23
+2a 2a 46 4c 41 53 48 2a
+46 41 49 4c 45 44 2a 2a
+70 9a 30
+Cmd=3A (Device Read) Addr=0000 Param_len=1 Param=3 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+02 19 fd 6b d1 30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=1 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=3B (Device Write) Addr=0200 Param_len=3 Param=2 CRC OK
+blheli_set_addr
+30
+blheli_set_buffer
+30
+blheli_program_flash
+30
+Cmd=3A (Device Read) Addr=0200 Param_len=1 Param=3 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+02 1c 00 a9 00 30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=0 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=3A (Device Read) Addr=0000 Param_len=1 Param=0 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+40 54 30
+Cmd=3A (Device Read) Addr=0100 Param_len=1 Param=0 CRC OK
+blheli_set_addr
+30
+blheli_read_flash
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+ff ff ff ff ff ff ff ff
+40 54 30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=2 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=3 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=4 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=5 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=6 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=7 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=8 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=9 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=10 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=11 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=39 (Device Page Erase) Addr=0000 Param_len=1 Param=12 CRC OK
+blheli_set_addr
+30
+blheli_erase_flash
+30
+Cmd=3B (Device Write) Addr=0400 Param_len=256 Param=45 CRC bad
+Cmd=3B (Device Write) Addr=0400 Param_len=256 Param=45 CRC bad
+Cmd=3B (Device Write) Addr=0400 Param_len=256 Param=45 CRC bad
+Cmd=3B (Device Write) Addr=0400 Param_len=256 Param=45 CRC bad
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=30 (Interface Test Alive) Addr=0000 Param_len=1 Param=0 CRC OK
+Cmd=34 (Interface Exit) Addr=0000 Param_len=1 Param=0 CRC OK
+
+Hey Rocky! Watch me pull a rabbit out of my hat.
+
+(insert
+(mapconcat #'char-to-string '(
+#x48 #x65 #x79 #x20 #x52 #x6f #x63 #x6b
+#x79 #x21 #x20 #x57 #x61 #x74 #x63 #x68
+#x20 #x6d #x65 #x20 #x70 #x75 #x6c #x6c
+#x20 #x61 #x20 #x72 #x61 #x62 #x62 #x69
+#x74 #x20 #x6f #x75 #x74 #x20 #x6f #x66
+#x20 #x6d #x79 #x20 #x68 #x61 #x74 #x2e
+#x48 #x65 #x79 #x20 #x52 #x6f #x63 #x6b
+#x79 #x21 #x20 #x57 #x61 #x74 #x63 #x68
+#x20 #x6d #x65 #x20 #x70 #x75 #x6c #x6c
+#x20 #x61 #x20 #x72 #x61 #x62 #x62 #x69
+#x74 #x20 #x6f #x75 #x74 #x20 #x6f #x66
+#x20 #x6d #x79 #x20 #x68 #x61 #x74 #x2e
+#x48 #x65 #x79 #x04 #xc5 #x14 #x30
+) ""))
+Hey Rocky! Watch me pull a rabbit out of my hat.Hey Rocky! Watch me pull a rabbit out of my hat.HeyÅ0 
+
+
+(setq a '(
+#x2d #x78 #x22
+#x30 #x36 #x06 #x7c #x00 #x7d #x08 #x81
+#x17 #xac #x31 #xad #x32 #x30 #x3a #x04
+#xac #x33 #xad #x34 #xc3 #xea #x9c #xfa
+#xeb #x9d #xfb #x92 #x08 #xae #x60 #xaf
+#x61 #x30 #x3a #x42 #x50 #x07 #x20 #x35
+#x09 #xd2 #x35 #x81 #x35 #x30 #x35 #x02
+#xc2 #x35 #x30 #x35 #x04 #xae #x62 #xaf
+#x63 #x20 #x39 #x02 #xb2 #x35 #xc3 #xea
+#x33 #xfa #xeb #x33 #xfb #xa2 #x08 #x50
+#x0a #xea #xf4 #x24 #x01 #xfa #xeb #xf4
+#x34 #x00 #xfb #xc3 #xea #x94 #x50 #xfa
+#xeb #x94 #x00 #xfb #x50 #x14 #x78 #x00
+#x7a #x00 #x7b #x00 #x81 #x75 #xa2 #x08
+#x50 #x08 #x78 #x00 #x7a #x00 #x7b #x00
+#x81 #xd4 #xe5 #x25 #x54 #x03 #x60 #x1b
+#x20 #x2a #x18 #xe5 #x5d #x33 #xf9 #xeb
+#x70 #x07 #xc3 #xe9 #x9a #x40 #x02 #xe9
+#xfa #xe5 #x3c #xc4 #x33 #x2a #xfa #xeb
+#x34 #x00 #xfb #xea #x8e #xf0 #xa4 #xf9
+#xaa #xf0 #xeb #x8e #xf0 #xa4 #x2a #xfa
+#xc5 #xf0 #x34 #x00 #xfb #xc3 #xeb #x13
+#xfd #xea #x13 #xf8 #xc3 #xed #x13 #xfd
+#xe8 #x13 #xf8 #x0f #xef #x14 #x60 #x04
+#xc3 #xe8 #x33 #xf8 #xc3 #xe9 #x33 #xea
+#x33 #xfa #xeb #x33 #xfb #xdf #xed #xeb
+#x30 #xe3 #x06 #x78 #xff #x7a #xff #x7b
+#x07 #x88 #x54 #xd2 #x30 #xe8 #x60 #x03
+#x75 #x55 #x00 #xc3 #xe5 #x5b #xfc #x95
+#x5c #x40 #x02 #xac #x5c #xc3 #xec #x95
+#x54 #x50 #x08 #xec #x75 #xf0 #x08 #xa4
+#xfa #xab #xf0 #xea #xf4 #xf8 #xeb #xf4
+#x54 #x07 #xf9 #xc3 #xe8
+))
+
+(setq b '(
+#x2d #x78 #x22 #x30 #x36 #x06 #x7c #x00
+#x7d #x08 #x81 #x17 #xac #x31 #xad #x32
+#x30 #x3a #x04 #xac #x33 #xad #x34 #xc3
+#xea #x9c #xfa #xeb #x9d #xfb #x92 #x08
+#xae #x60 #xaf #x61 #x30 #x3a #x42 #x50
+#x07 #x20 #x35 #x09 #xd2 #x35 #x81 #x35
+#x30 #x35 #x02 #xc2 #x35 #x30 #x35 #x04
+#xae #x62 #xaf #x63 #x20 #x39 #x02 #xb2
+#x35 #xc3 #xea #x33 #xfa #xeb #x33 #xfb
+#xa2 #x08 #x50 #x0a #xea #xf4 #x24 #x01
+#xfa #xeb #xf4 #x34 #x00 #xfb #xc3 #xea
+#x94 #x50 #xfa #xeb #x94 #x00 #xfb #x50
+#x14 #x78 #x00 #x7a #x00 #x7b #x00 #x81
+#x75 #xa2 #x08 #x50 #x08 #x78 #x00 #x7a
+#x00 #x7b #x00 #x81 #xd4 #xe5 #x25 #x54
+#x03 #x60 #x1b #x20 #x2a #x18 #xe5 #x5d
+#x33 #xf9 #xeb #x70 #x07 #xc3 #xe9 #x9a
+#x40 #x02 #xe9 #xfa #xe5 #x3c #xc4 #x33
+#x2a #xfa #xeb #x34 #x00 #xfb #xea #x8e
+#xf0 #xa4 #xf9 #xaa #xf0 #xeb #x8e #xf0
+#xa4 #x2a #xfa #xc5 #xf0 #x34 #x00 #xfb
+#xc3 #xeb #x13 #xfd #xea #x13 #xf8 #xc3
+#xed #x13 #xfd #xe8 #x13 #xf8 #x0f #xef
+#x14 #x60 #x04 #xc3 #xe8 #x33 #xf8 #xc3
+#xe9 #x33 #xea #x33 #xfa #xeb #x33 #xfb
+#xdf #xed #xeb #x30 #xe3 #x06 #x78 #xff
+#x7a #xff #x7b #x07 #x88 #x54 #xd2 #x30
+#xe8 #x60 #x03 #x75 #x55 #x00 #xc3 #xe5
+#x5b #xfc #x95 #x5c #x40 #x02 #xac #x5c
+#xc3 #xec #x95 #x54 #x50 #x08 #xec #x75
+#xf0 #x08 #xa4 #xfa #xab #xf0 #xea #xf4
+#xf8 #xeb #xf4 #x54 #x07 #xf9 #xc3 #xe8
+))
+
+(equal a b)
+
+
+(setq a '(
+2d 78 22
+30 36 06 7c 00 7d 08 81
+17 ac 31 ad 32 30 3a 04
+ac 33 ad 34 c3 ea 9c fa
+eb 9d fb 92 08 ae 60 af
+61 30 3a 42 50 07 20 35
+09 d2 35 81 35 30 35 02
+c2 35 30 35 04 ae 62 af
+63 20 39 02 b2 35 c3 ea
+33 fa eb 33 fb a2 08 50
+0a ea f4 24 01 fa eb f4
+34 00 fb c3 ea 94 50 fa
+eb 94 00 fb 50 14 78 00
+7a 00 7b 00 81 75 a2 08
+50 08 78 00 7a 00 7b 00
+81 d4 e5 25 54 03 60 1b
+20 2a 18 e5 5d 33 f9 eb
+70 07 c3 e9 9a 40 02 e9
+fa e5 3c c4 33 2a fa eb
+34 00 fb ea 8e f0 a4 f9
+aa f0 eb 8e f0 a4 2a fa
+c5 f0 34 00 fb c3 eb 13
+fd ea 13 f8 c3 ed 13 fd
+e8 13 f8 0f ef 14 60 04
+c3 e8 33 f8 c3 e9 33 ea
+33 fa eb 33 fb df ed eb
+30 e3 06 78 ff 7a ff 7b
+07 88 54 d2 30 e8 60 03
+75 55 00 c3 e5 5b fc 95
+5c 40 02 ac 5c c3 ec 95
+54 50 08 ec 75 f0 08 a4
+fa ab f0 ea f4 f8 eb f4
+54 07 f9 c3 e8
+))
+
+(defun hex-to-decimal-region (start end)
+  "Convert all hexadecimal numbers in the selected region to decimal numbers."
+  (interactive "r")
+  (save-excursion
+    (goto-char start)
+    ;; Match hexadecimal numbers in the region
+    (while (re-search-forward "[0-9A-Fa-f]\\{2\\}" end t)
+      (let* ((hex-string (match-string 0)) ;; Extract the matched hex string
+             (decimal-value (string-to-number hex-string 16))) ;; Convert to decimal
+        ;; Replace the hex value with its decimal equivalent
+        (replace-match (number-to-string decimal-value))))))
+
+(defun hex-to-ascii (start end)
+  "Convert two-digit hexadecimal numbers in the selected region to ASCII characters."
+  (interactive "r")
+  (defun code-list (end)
+    (if (re-search-forward "[0-9A-Fa-f]\\{2\\}" end t)
+	(let ((ascii-code (string-to-number (match-string 0) 16)))
+	  (cons ascii-code (code-list end)))
+      nil))
+  (save-excursion
+    (goto-char start)
+    (let ((codes (code-list end)))
+      (goto-char end)
+      (insert (apply #'string codes)))))
