@@ -10,6 +10,7 @@
 #define FOURWAY_TASK_STACK_SIZE 1024
 
 static const UBaseType_t pktQueueLength = 8;
+QueueSetHandle_t xQueueSet;
 QueueHandle_t fourwayQueueHandle;
 static TaskHandle_t usbRxTaskHandle;
 
@@ -166,16 +167,23 @@ void tud_cdc_rx_cb(uint8_t itf)
 static void usb_rx_task_func(void *param)
 {
     while (1) {
-        fourway_pkt_t pkt;
-        if (xQueueReceive(fourwayQueueHandle, &pkt, portMAX_DELAY) == pdPASS)
-            fourway_handle_pkt(&pkt);
+        QueueSetMemberHandle_t xActivatedMember = xQueueSelectFromSet(xQueueSet, portMAX_DELAY);
+        if (xActivatedMember == fourwayQueueHandle) {
+            fourway_pkt_t pkt;
+            if (xQueueReceive(fourwayQueueHandle, &pkt, 0) == pdPASS)
+                fourway_handle_pkt(&pkt);
+        }
     }
+
+    vTaskDelete(NULL); /* unreachable */
 }
 
 void usb_rx_init()
 {
+    xQueueSet = xQueueCreateSet(10); // 10 is the maximum number of items across all queues
     fourwayQueueHandle = xQueueCreate(pktQueueLength, sizeof(fourway_pkt_t));
     configASSERT(fourwayQueueHandle);
+    xQueueAddToSet(fourwayQueueHandle, xQueueSet);
     configASSERT(xTaskCreate(usb_rx_task_func, "USB rx", FOURWAY_TASK_STACK_SIZE, NULL, configMAX_PRIORITIES - 2, &usbRxTaskHandle));
     configASSERT(usbRxTaskHandle);
 }
