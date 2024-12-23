@@ -1,10 +1,10 @@
 
 #include <tusb.h>
 #include "fourway.h"
-#include "putbuf.h"
+#include "msp.h"
 #include "usb_rx.h"
 
-static fourway_pkt_t *fsm(int c)
+static int fsm(int c)
 {
     typedef enum {
         IDLE,
@@ -26,13 +26,18 @@ static fourway_pkt_t *fsm(int c)
     } state_t;
     static state_t curr = IDLE;
     static size_t param_cnt;
-    static fourway_pkt_t pkt = {0};
+    static union {
+        fourway_pkt_t fourway;
+        msp_pkt_t msp;
+    } pkt;
     state_t next = IDLE;
 
     switch (curr) {
         case IDLE:
-            if (c == 0x2f)
+            if (c == '/')
                 next = FOURWAY_START;
+            else if (c == '$')
+                next = MSP_DOLLAR;
             break;
         case FOURWAY_START:
             if (0x30 <= c && c <= 0x3F)
@@ -43,17 +48,42 @@ static fourway_pkt_t *fsm(int c)
         case FOURWAY_ADDRESS_LO:
         case FOURWAY_PARAM_LEN:
         case FOURWAY_CRC_HI:
+        case MSP_SIZE:
+        case MSP_LESS:
             next = curr + 1;
             break;
         case FOURWAY_PARAM:
-            if (param_cnt == fourway_param_len(&pkt))
+            if (param_cnt == fourway_param_len(&pkt.fourway))
                 next = FOURWAY_CRC_HI;
             else
                 next = FOURWAY_PARAM;
             break;
         case FOURWAY_CRC_LO:
-            if (c == 0x2F)
+        case MSP_CRC:
+            if (c == '/')
                 next = FOURWAY_START;
+            else if (c == '$')
+                next = MSP_DOLLAR;
+            break;
+        case MSP_DOLLAR:
+            if (c == 'M')
+                next = MSP_M;
+            break;
+        case MSP_M:
+            if (c == '<')
+                next = MSP_LESS;
+            break;
+        case MSP_COMMAND:
+            if (param_cnt)
+                next = MSP_DATA;
+            else
+                next = MSP_CRC;
+            break;
+        case MSP_DATA:
+            if (param_cnt == pkt.msp.size)
+                next = MSP_CRC;
+            break;
+        default:
             break;
     }
 
@@ -62,45 +92,43 @@ static fourway_pkt_t *fsm(int c)
     switch (curr) {
         case FOURWAY_START:
             bzero(&pkt, sizeof(pkt));
-            pkt.start = c;
+            pkt.fourway.start = c;
             break;
         case FOURWAY_COMMAND:
-            pkt.cmd = c;
+            pkt.fourway.cmd = c;
             break;
         case FOURWAY_ADDRESS_HI:
-            pkt.addr_msb = c;
+            pkt.fourway.addr_msb = c;
             break;
         case FOURWAY_ADDRESS_LO:
-            pkt.addr_lsb = c;
+            pkt.fourway.addr_lsb = c;
             break;
         case FOURWAY_PARAM_LEN:
-            pkt.param_len = c;
+            pkt.fourway.param_len = c;
             param_cnt = 0;
             break;
         case FOURWAY_PARAM:
-            pkt.param[param_cnt++] = c;
+            pkt.fourway.param[param_cnt++] = c;
             break;
         case FOURWAY_CRC_HI:
-            pkt.param[param_cnt++] = c;
+            pkt.fourway.param[param_cnt++] = c;
             break;
         case FOURWAY_CRC_LO:
-            pkt.param[param_cnt++] = c;
-            return &pkt;
+            pkt.fourway.param[param_cnt++] = c;
+            xQueueSendToBack(fourwayQueueHandle, &pkt.fourway, 0);
+            return 1;
         default:
             break;
     }
 
-    return NULL;
+    return 0;
 }
 
 void tud_cdc_rx_cb(uint8_t itf)
 {
     int c;
 
-    while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {    
-        fourway_pkt_t * const pkt = fsm(c);
-        ascbuf(c, pkt != NULL);
-        if (pkt)
-            xQueueSendToBack(fourwayQueueHandle, pkt, 0);
+    while (tud_cdc_available() > 0 && (c = tud_cdc_read_char()) >= 0) {
+        fsm(c);
     }
 }
