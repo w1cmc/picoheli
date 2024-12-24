@@ -21,6 +21,7 @@
 #include "blheli.h"
 #include "scribble.h"
 #include "shadow_flash.h"
+#include "putbuf.h"
 
 // Put the buffer in BSS because there's not enough stack space.
 #if configSTATS_BUFFER_MAX_LENGTH < 0xFFFFU
@@ -236,8 +237,9 @@ static void run_read(int argc, const char *argv[])
 {
     char *end = 0;
     if (argc == 3) {
-        run_addr(argc, argv);
         --argc;
+        printf("Addr: ");
+        run_addr(argc, argv);
         ++argv;
     }
 
@@ -249,9 +251,9 @@ static void run_read(int argc, const char *argv[])
 
     char * const rx_buf = malloc(rx_size); // no check: CRT panics on OOM
     if (blheli_read_flash(rx_buf, rx_size) == ACK_OK)
-        puts("OK");
+        putbuf(rx_buf, rx_size);
     else
-        puts("Error");
+        puts("Read: Error");
     free(rx_buf);
 }
 
