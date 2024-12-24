@@ -91,7 +91,7 @@ int blheli_DevicePageErase(fourway_pkt_t *pkt)
 
 int blheli_DeviceRead(fourway_pkt_t *pkt)
 {
-    const uint16_t addr = pkt->addr_msb << 8 + pkt->addr_lsb;
+    const uint16_t addr = (pkt->addr_msb << 8) + pkt->addr_lsb;
     int ack = blheli_set_addr(addr);
 
     if (ack == ACK_OK) {
