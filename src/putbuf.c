@@ -5,7 +5,7 @@
 
 void ascbuf(int c, int eol)
 {
-    static char buf[18] = {0};
+    static char buf[17] = {0};
     static char * const end = &buf[sizeof(buf) - 1];
     static char * pos = buf;
 
@@ -13,6 +13,7 @@ void ascbuf(int c, int eol)
     *pos++ = isprint(c) ? c : '.';
     if (eol || (pos == end)) {
         *pos = 0;
+        printf("%*s", 3*(end - pos), "");
         puts(buf);
         pos = buf;
     }
