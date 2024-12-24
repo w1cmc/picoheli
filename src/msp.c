@@ -96,14 +96,14 @@ void msp_handle_pkt(msp_pkt_t *pkt)
             pkt->data[0] = 4;
             pkt->data[1] = (3300 & 255);
             pkt->data[2] = (3300 >> 8);
-            pkt->data[3] = 42; // 4.2 volts times ten
+            pkt->data[3] = 42 * pkt->data[0]; // 4.2 volts per cell times ten
             pkt->data[4] = (100 & 255);
             pkt->data[5] = (100 >> 8);
             pkt->data[6] = 1;
             pkt->data[7] = 0;
             pkt->data[8] = 1; // battery "state". Don't know the encoding
-            pkt->data[9] = (420 & 255); // 4.2 volts again, this time times 100
-            pkt->data[10] = (420 >> 8);
+            pkt->data[9] = (420 * pkt->data[0]) & 255; // 4.2 volts again, this time times 100
+            pkt->data[10] = (420 * pkt->data[0]) >> 8;
             break;
         case MSP_SET_PASSTHROUGH:
             pkt->size = 1;
