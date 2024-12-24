@@ -106,6 +106,7 @@ int blheli_DeviceRead(fourway_pkt_t *pkt)
         pkt->param[0] = 0;
     }
 
+    putbuf(pkt->param, fourway_param_len(pkt));
     return ack;
 }
 
@@ -117,6 +118,7 @@ int blheli_DeviceWrite(fourway_pkt_t *pkt)
     const uint16_t end = dst + size;
     uint8_t *src = pkt->param;
 
+    putbuf(src, size);
     while (dst < end) {
         uint16_t step = end - dst;
         if (step > 128)
