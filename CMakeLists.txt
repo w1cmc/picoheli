@@ -20,7 +20,7 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 set(PICO_BOARD pico CACHE STRING "Board type")
-set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Build for debug" FORCE)
+# set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Build for debug" FORCE)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
