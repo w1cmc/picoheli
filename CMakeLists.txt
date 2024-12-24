@@ -20,12 +20,11 @@ if (EXISTS ${picoVscode})
 endif()
 # ====================================================================================
 set(PICO_BOARD pico CACHE STRING "Board type")
-
+set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Build for debug" FORCE)
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
 project(picoheli C CXX ASM)
-set(PICO_DEOPTIMIZED_DEBUG ON CACHE BOOL "Compile fully de-optimized for debug")
 
 include(FetchContent)
 FetchContent_Declare(freertos_kernel
@@ -55,7 +54,6 @@ target_link_libraries(
 )
 
 set(TINYUSB_OPT_OS OPT_OS_FREERTOS)
-set(PICO_DEOPTIMIZED_DEBUG ON)
 pico_sdk_init()
 
 # Select the RP2040 FreeRTOS PORT
