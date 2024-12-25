@@ -5,6 +5,7 @@
 #include "usb_tx.h"
 #include "msp_protocol.h"
 #include "msp.h"
+#include "putbuf.h"
 
 #define FC_VERSION_LENGTH 3
 #define FC_VERSION_MAJOR 0
@@ -49,6 +50,7 @@ static const char *cmd_label(const msp_pkt_t *const pkt)
 void msp_handle_pkt(msp_pkt_t *pkt)
 {
     printf("%s (%u) size=%d\n", cmd_label(pkt), pkt->cmd, pkt->size);
+    putbuf(pkt->preamble, 6 + pkt->size); // '$' 'M' '>' size, cmd, data, crc
 
     pkt->direction = '>';
     switch (pkt->cmd) {
