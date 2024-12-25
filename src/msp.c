@@ -35,20 +35,22 @@ static const char *cmd_label(const msp_pkt_t *const pkt)
         return "MSP_FEATURE_CONFIG";
     case MSP_BATTERY_STATE:
         return "MSP_BATTERY_STATE";
+    case MSP_SET_MOTOR:
+        return "MSP_SET_MOTOR";
     case MSP_SET_PASSTHROUGH:
         return "MSP_SET_PASSTHROUGH";
     default:
         break;
     }
 
-    return NULL;
+    return "unrecognized command";
 }
 
 void msp_handle_pkt(msp_pkt_t *pkt)
 {
-    const char * const label = cmd_label(pkt);
-    printf("%s (%u) size=%d\n", label ? label : "unrecognized command", pkt->cmd, pkt->size);
+    printf("%s (%u) size=%d\n", cmd_label(pkt), pkt->cmd, pkt->size);
 
+    pkt->direction = '>';
     switch (pkt->cmd) {
         case MSP_API_VERSION:
             pkt->size = API_VERSION_LENGTH + 1;
@@ -110,10 +112,11 @@ void msp_handle_pkt(msp_pkt_t *pkt)
             pkt->data[0] = 1; // return the number of connected ESCs
             break;
         default:
-            return;
+            pkt->direction = '|'; // unknown code
+            pkt->size = 0;
+            break;
     }
 
-    pkt->direction = '>';
     // CRC is XOR of command, size and any data: not a very good CRC.
     uint8_t crc = pkt->cmd ^ pkt->size;
     uint8_t * ptr = pkt->data;
